@@ -12,9 +12,12 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy"
   },
-  "prisma": { "schema": "prisma/schema.prisma" },
+  "prisma": {
+    "schema": "prisma/schema.prisma"
+  },
   "dependencies": {
-    "@prisma/client": "^6.1.0"
+    "@prisma/client": "^6.1.0",
+    "viem": "^2.55.16"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

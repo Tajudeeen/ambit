@@ -1,18 +1,30 @@
-/**
- * M0 baseline indexer entrypoint.
- *
- * Real BSC ERC-8004 indexing lands in M1 (using @ambit/erc8004 ABIs and the
- * live registry addresses resolved from 8004scan /networks). This file asserts
- * the project wiring (config loads, packages resolve) so the M0 verification
- * gate is meaningful. It does NOT fabricate agents or scan chains.
- */
 import { getConfig } from '@ambit/config';
+import { MemoryCheckpointStore } from './checkpoint.js';
+import { indexOnce } from './indexer.js';
 
+/**
+ * M1 entrypoint: index live BSC ERC-8004 registrations.
+ *
+ * Real chain read via viem. Checkpoint is in-memory for M1 (swap to Postgres
+ * in M2). No agents are hardcoded; every emitted agent comes from an on-chain
+ * `Registered` event.
+ */
 export async function main(): Promise<void> {
   const cfg = getConfig();
-  console.log(`[ambit-indexer] M0 baseline — BSC chainId=${cfg.bsc.chainId}`);
-  console.log(`[ambit-indexer] ERC-8004 identity registry configured: ${cfg.erc8004.identityRegistry || '(pending M1)'}`);
-  // M1 will: connect RPC, read Registered events, checkpoint, ingest.
+  const store = new MemoryCheckpointStore();
+  // Prefer the recon-verified registry address; fall back to config/env.
+  const rpcUrl = cfg.bsc.rpcUrl;
+  const chainId = cfg.bsc.chainId;
+  console.log(`[ambit-indexer] M1 — indexing BSC (${chainId}) ERC-8004 identity registry`);
+  const { toBlock, agents } = await indexOnce({
+    rpcUrl,
+    chainId,
+    checkpoint: store,
+    batchSize: cfg.indexer.batchSize,
+    onAgent: (a) => console.log(`  + ${a.agentRegistry} (${a.name})`),
+    onUnresolved: (ev, reason) => console.warn(`  ! agentId ${ev.agentId} unresolved: ${reason}`),
+  });
+  console.log(`[ambit-indexer] M1 pass complete: reached block ${toBlock}, ${agents} new agent(s).`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

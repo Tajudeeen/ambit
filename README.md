@@ -85,4 +85,5 @@ docker compose up -d        # Postgres for M1+
 ## Verification status
 
 - [x] M0 Repository + architecture baseline
-- [ ] M1 BNB Chain + ERC-8004 foundation
+- [x] M1 BNB Chain + ERC-8004 foundation (live registry addresses, viem reader, checkpointed indexer)
+- [ ] M2 Agent discovery + data pipeline

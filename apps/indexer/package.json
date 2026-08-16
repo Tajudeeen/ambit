@@ -12,8 +12,9 @@
   },
   "dependencies": {
     "@ambit/config": "workspace:*",
+    "@ambit/core": "workspace:*",
     "@ambit/erc8004": "workspace:*",
-    "@ambit/core": "workspace:*"
+    "viem": "^2.55.16"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
