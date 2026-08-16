@@ -17,6 +17,7 @@
     "@ambit/endpoint": "workspace:*",
     "@ambit/reputation": "workspace:*",
     "@ambit/trust-engine": "workspace:*",
+    "@ambit/activity": "workspace:*",
     "viem": "^2.55.16"
   },
   "devDependencies": {

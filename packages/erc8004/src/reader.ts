@@ -1,8 +1,4 @@
-import {
-  ERC8004_IDENTITY_ABI,
-  ERC8004_REPUTATION_ABI,
-  type NetworkRegistries,
-} from './index.js';
+import { ERC8004_IDENTITY_ABI, ERC8004_REPUTATION_ABI, type NetworkRegistries } from './index.js';
 import type { PublicClient } from 'viem';
 
 /** A raw `Registered(agentId, agentURI, owner)` event as emitted on-chain. */
@@ -109,6 +105,22 @@ export class Erc8004Reader {
     });
   }
 
+  async getAgentWallet(agentId: bigint, blockNumber?: bigint): Promise<`0x${string}` | null> {
+    try {
+      const w = (await this.client.readContract({
+        address: this.net.identityRegistry,
+        abi: ERC8004_IDENTITY_ABI,
+        functionName: 'getAgentWallet',
+        args: [agentId],
+        blockNumber,
+      })) as `0x${string}`;
+      // Zero address means unset.
+      return w.toLowerCase() === '0x0000000000000000000000000000000000000000' ? null : w;
+    } catch {
+      return null;
+    }
+  }
+
   get network(): NetworkRegistries {
     return this.net;
   }
@@ -120,7 +132,9 @@ export async function resolveAgentURI(agentURI: string, fetchImpl = fetch): Prom
     const comma = agentURI.indexOf(',');
     const meta = agentURI.slice(5, comma);
     const payload = agentURI.slice(comma + 1);
-    return meta.includes('base64') ? Buffer.from(payload, 'base64').toString('utf8') : decodeURIComponent(payload);
+    return meta.includes('base64')
+      ? Buffer.from(payload, 'base64').toString('utf8')
+      : decodeURIComponent(payload);
   }
   let url = agentURI;
   if (agentURI.startsWith('ipfs://')) {

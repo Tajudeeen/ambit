@@ -7,10 +7,11 @@ import {
   type NewFeedbackEvent,
 } from '@ambit/erc8004';
 import { createBscClient } from '@ambit/erc8004';
-import type { Agent, Evidence, EndpointStatus } from '@ambit/core';
+import { METHODOLOGY_VERSION, type Agent, type Evidence, type EndpointStatus } from '@ambit/core';
 import { probeEndpoint, type ProbeResult } from '@ambit/endpoint';
 import { normalizeFeedback, summarizeReputation } from '@ambit/reputation';
 import { scoreAgent, withTrust } from '@ambit/trust-engine';
+import { verifyActivity, type ActivityClient } from '@ambit/activity';
 
 import { getConfig } from '@ambit/config';
 import { MemoryCheckpointStore, nextStartBlock, type CheckpointStore } from './checkpoint.js';
@@ -32,6 +33,8 @@ export interface IndexerDeps {
   probeImpl?: (url: string) => Promise<ProbeResult>;
   /** Override reputation events source (tests inject fixtures). */
   feedbackSource?: (from: bigint, to: bigint) => Promise<NewFeedbackEvent[]>;
+  /** Override on-chain activity verifier (tests inject a fake). */
+  activityClient?: ActivityClient;
 }
 
 /**
@@ -49,6 +52,7 @@ export function eventToAgent(
   rawMetadataJson: string,
   resolvedAt: string,
   probe: ProbeResult | null,
+  agentWallet: string | null = null,
 ): Agent {
   const valid = validateRegistrationFile(safeParse(rawMetadataJson));
   const reg = valid.ok ? valid.data : null;
@@ -60,18 +64,36 @@ export function eventToAgent(
 
   let endpoint: Agent['endpoint'] = null;
   if (epUrl) {
-    const status: EndpointStatus = probe ? probe.status === 'blocked' ? 'down' : probe.status : 'unknown';
+    const status: EndpointStatus = probe
+      ? probe.status === 'blocked'
+        ? 'down'
+        : probe.status
+      : 'unknown';
     endpoint = { url: epUrl, status, lastChecked: resolvedAt, latencyMs: probe?.latencyMs };
   }
 
   const evidence: Evidence[] = [
-    { source: 'erc8004-identity', timestamp: resolvedAt, blockNumber: Number(ev.blockNumber), txHash: ev.txHash, methodologyVersion: 'v0.0.0' },
+    {
+      source: 'erc8004-identity',
+      timestamp: resolvedAt,
+      blockNumber: Number(ev.blockNumber),
+      txHash: ev.txHash,
+      methodologyVersion: 'v0.0.0',
+    },
   ];
   if (!valid.ok) {
-    evidence.push({ source: 'metadata-validation', timestamp: resolvedAt, methodologyVersion: 'v0.0.0' });
+    evidence.push({
+      source: 'metadata-validation',
+      timestamp: resolvedAt,
+      methodologyVersion: 'v0.0.0',
+    });
   }
   if (probe && probe.status === 'blocked') {
-    evidence.push({ source: 'endpoint-ssrf-blocked', timestamp: resolvedAt, methodologyVersion: 'v0.0.0' });
+    evidence.push({
+      source: 'endpoint-ssrf-blocked',
+      timestamp: resolvedAt,
+      methodologyVersion: 'v0.0.0',
+    });
   }
 
   const agentRegistry = `eip155:${net.chainId}:${net.identityRegistry}:${ev.agentId}`;
@@ -81,6 +103,7 @@ export function eventToAgent(
     chainId: net.chainId,
     identityRegistry: net.identityRegistry,
     owner: ev.owner,
+    agentWallet,
     agentURI: ev.agentURI,
     name,
     description,
@@ -89,13 +112,19 @@ export function eventToAgent(
     endpoint,
     reputation: null, // filled by ingestReputation
     paymentEvidence: [],
+    activity: null,
     verifiedActivity: false,
     trust: null,
     verificationTier: 'unverified',
     supportedExecution: false,
     supportedProtocols: [],
     executionVerified: false,
-    executionStats: { verifiedExecutions: 0, blockedActions: 0, successRate: null, capitalProcessed: '0' },
+    executionStats: {
+      verifiedExecutions: 0,
+      blockedActions: 0,
+      successRate: null,
+      capitalProcessed: '0',
+    },
     policy: null,
     evidenceRefs: evidence,
     lastIndexedBlock: Number(ev.blockNumber),
@@ -149,6 +178,10 @@ export async function indexOnce(deps: IndexerDeps): Promise<{ toBlock: number; a
   const reader = new Erc8004Reader(client, net);
   const probe = deps.probeImpl ?? ((url: string) => probeEndpoint(url, deps.fetchImpl));
   const feedbackSrc = deps.feedbackSource ?? ((from, to) => reader.getNewFeedbackEvents(from, to));
+  const activityClient: ActivityClient = deps.activityClient ?? {
+    getTransactionCount: ({ address, blockNumber }) =>
+      client.getTransactionCount({ address, blockNumber }),
+  };
 
   const cp = await deps.checkpoint.get(deps.chainId, net.identityRegistry);
   const start: bigint = BigInt(nextStartBlock(net, net.identityRegistry, cp));
@@ -157,22 +190,55 @@ export async function indexOnce(deps: IndexerDeps): Promise<{ toBlock: number; a
     return { toBlock: Number(start - 1n), agents: 0 };
   }
   const end: bigint = head < start ? start : head;
-  const batchEnd: bigint = end < start + BigInt(deps.batchSize) - 1n ? end : start + BigInt(deps.batchSize) - 1n;
+  const batchEnd: bigint =
+    end < start + BigInt(deps.batchSize) - 1n ? end : start + BigInt(deps.batchSize) - 1n;
 
   let count = 0;
   if (batchEnd >= start) {
     const events = await reader.getRegisteredEvents(start, batchEnd);
     const feedback = await feedbackSrc(start, batchEnd);
     const repMap = buildReputationMap(feedback, new Date().toISOString());
+    const observedAtBlock = head;
 
     for (const ev of events) {
       try {
+        const observedAt = new Date().toISOString();
         const raw = await resolveAgentURI(ev.agentURI, deps.fetchImpl);
         const epUrl = firstEndpoint(raw);
         const probeRes = epUrl ? await probe(epUrl) : null;
-        const agent = eventToAgent(ev, net, raw, new Date().toISOString(), probeRes);
+        const wallet = await reader.getAgentWallet(ev.agentId, observedAtBlock);
+        const agent = eventToAgent(ev, net, raw, observedAt, probeRes, wallet);
         const rep = repMap.get(ev.agentId.toString());
         if (rep) agent.reputation = rep;
+        if (wallet) {
+          agent.evidenceRefs.push({
+            source: 'erc8004-agent-wallet',
+            timestamp: observedAt,
+            blockNumber: Number(observedAtBlock),
+            methodologyVersion: METHODOLOGY_VERSION,
+          });
+          try {
+            const activity = await verifyActivity(activityClient, {
+              wallet,
+              observedAtBlock,
+              observedAt,
+            });
+            agent.activity = {
+              transactionCount: activity.transactionCount,
+              observedAtBlock: Number(activity.observedAtBlock),
+              observedAt: activity.observedAt,
+            };
+            agent.verifiedActivity = activity.verifiedActivity;
+            agent.evidenceRefs.push(...activity.evidence);
+          } catch {
+            agent.evidenceRefs.push({
+              source: 'onchain-activity-unavailable',
+              timestamp: observedAt,
+              blockNumber: Number(observedAtBlock),
+              methodologyVersion: METHODOLOGY_VERSION,
+            });
+          }
+        }
         const scored = withTrust(agent, scoreAgent(agent));
         deps.onAgent?.(scored, ev);
         count++;
@@ -189,7 +255,12 @@ export async function indexOnce(deps: IndexerDeps): Promise<{ toBlock: number; a
 /** Extract the first service endpoint from raw metadata (validation not required here). */
 function firstEndpoint(raw: string): string | null {
   const p = safeParse(raw);
-  if (p && typeof p === 'object' && 'services' in p && Array.isArray((p as { services: unknown[] }).services)) {
+  if (
+    p &&
+    typeof p === 'object' &&
+    'services' in p &&
+    Array.isArray((p as { services: unknown[] }).services)
+  ) {
     const s = (p as { services: Array<{ endpoint?: string }> }).services[0];
     return s?.endpoint ?? null;
   }
@@ -206,8 +277,13 @@ export async function main(): Promise<void> {
     chainId: cfg.bsc.chainId,
     checkpoint: store,
     batchSize: cfg.indexer.batchSize,
-    onAgent: (a) => console.log(`  + ${a.agentRegistry} (${a.name}) ep=${a.endpoint?.status ?? 'none'} rep=${a.reputation?.feedbackCount ?? 0}`),
+    onAgent: (a) =>
+      console.log(
+        `  + ${a.agentRegistry} (${a.name}) ep=${a.endpoint?.status ?? 'none'} rep=${a.reputation?.feedbackCount ?? 0}`,
+      ),
     onUnresolved: (ev, reason) => console.warn(`  ! agentId ${ev.agentId} unresolved: ${reason}`),
   });
-  console.log(`[ambit-indexer] M2 pass complete: reached block ${toBlock}, ${agents} new agent(s).`);
+  console.log(
+    `[ambit-indexer] M2 pass complete: reached block ${toBlock}, ${agents} new agent(s).`,
+  );
 }

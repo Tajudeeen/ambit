@@ -9,6 +9,7 @@ function baseAgent(over: Partial<Agent> = {}): Agent {
     chainId: 56,
     identityRegistry: '0xid',
     owner: '0xowner',
+    agentWallet: null,
     agentURI: 'ipfs://x',
     name: 'A',
     description: '',
@@ -17,13 +18,19 @@ function baseAgent(over: Partial<Agent> = {}): Agent {
     endpoint: null,
     reputation: null,
     paymentEvidence: [],
+    activity: null,
     verifiedActivity: false,
     trust: null,
     verificationTier: 'unverified',
     supportedExecution: false,
     supportedProtocols: [],
     executionVerified: false,
-    executionStats: { verifiedExecutions: 0, blockedActions: 0, successRate: null, capitalProcessed: '0' },
+    executionStats: {
+      verifiedExecutions: 0,
+      blockedActions: 0,
+      successRate: null,
+      capitalProcessed: '0',
+    },
     policy: null,
     evidenceRefs: [],
     lastIndexedBlock: 1,
@@ -42,13 +49,28 @@ describe('deterministic trust engine', () => {
   });
 
   it('is pure: same agent -> identical score', () => {
-    const a = baseAgent({ reputation: { normalizedScore: 500, feedbackCount: 10, distinctClients: 8, lastUpdated: '', freshness: 'recent' }, endpoint: { url: 'https://x', status: 'up', lastChecked: '' } });
+    const a = baseAgent({
+      reputation: {
+        normalizedScore: 500,
+        feedbackCount: 10,
+        distinctClients: 8,
+        lastUpdated: '',
+        freshness: 'recent',
+      },
+      endpoint: { url: 'https://x', status: 'up', lastChecked: '' },
+    });
     expect(scoreAgent(a).score).toBe(scoreAgent(a).score);
   });
 
   it('rewards live endpoint + reputation + valid metadata', () => {
     const strong = baseAgent({
-      reputation: { normalizedScore: 1200, feedbackCount: 12, distinctClients: 10, lastUpdated: '', freshness: 'recent' },
+      reputation: {
+        normalizedScore: 1200,
+        feedbackCount: 12,
+        distinctClients: 10,
+        lastUpdated: '',
+        freshness: 'recent',
+      },
       endpoint: { url: 'https://x', status: 'up', lastChecked: '' },
       verifiedActivity: true,
     });
@@ -59,9 +81,27 @@ describe('deterministic trust engine', () => {
   });
 
   it('penalizes Sybil-style single-reviewer concentration', () => {
-    const diverse = baseAgent({ reputation: { normalizedScore: 800, feedbackCount: 10, distinctClients: 10, lastUpdated: '', freshness: 'recent' } });
-    const concentrated = baseAgent({ reputation: { normalizedScore: 800, feedbackCount: 10, distinctClients: 1, lastUpdated: '', freshness: 'recent' } });
-    expect(scoreAgent(diverse).breakdown.reputation.value).toBeGreaterThan(scoreAgent(concentrated).breakdown.reputation.value);
+    const diverse = baseAgent({
+      reputation: {
+        normalizedScore: 800,
+        feedbackCount: 10,
+        distinctClients: 10,
+        lastUpdated: '',
+        freshness: 'recent',
+      },
+    });
+    const concentrated = baseAgent({
+      reputation: {
+        normalizedScore: 800,
+        feedbackCount: 10,
+        distinctClients: 1,
+        lastUpdated: '',
+        freshness: 'recent',
+      },
+    });
+    expect(scoreAgent(diverse).breakdown.reputation.value).toBeGreaterThan(
+      scoreAgent(concentrated).breakdown.reputation.value,
+    );
   });
 
   it('records metadata-validation failure as a low (not fabricated) signal', () => {
@@ -72,7 +112,9 @@ describe('deterministic trust engine', () => {
   });
 
   it('produces a human-readable breakdown for the marketplace', () => {
-    const r = scoreAgent(baseAgent({ endpoint: { url: 'https://x', status: 'up', lastChecked: '' } }));
+    const r = scoreAgent(
+      baseAgent({ endpoint: { url: 'https://x', status: 'up', lastChecked: '' } }),
+    );
     expect(Array.isArray(r.reasons)).toBe(true);
     expect(r.reasons.length).toBeGreaterThan(0);
     expect(typeof r.breakdown.endpoint.contribution).toBe('number');

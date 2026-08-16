@@ -59,6 +59,15 @@ export interface PaymentEvidence {
   reliable: boolean;
 }
 
+export interface WalletActivitySummary {
+  /** Number of transactions sent by the registered wallet at observedAtBlock. */
+  transactionCount: number;
+  /** Chain block used for the wallet and transaction-count snapshot. */
+  observedAtBlock: number;
+  /** ISO-8601 time the indexer observed the snapshot. */
+  observedAt: string;
+}
+
 export interface TrustScore {
   /** 0-100 reproducible score. */
   score: number;
@@ -74,6 +83,7 @@ export interface Agent {
   chainId: number;
   identityRegistry: string;
   owner: string;
+  agentWallet: string | null;
   agentURI: string;
   name: string;
   description: string;
@@ -83,6 +93,7 @@ export interface Agent {
   endpoint: EndpointState | null;
   reputation: ReputationSummary | null;
   paymentEvidence: PaymentEvidence[];
+  activity: WalletActivitySummary | null;
   verifiedActivity: boolean;
   trust: TrustScore | null;
   verificationTier: VerificationTier;
