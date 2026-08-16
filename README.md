@@ -49,12 +49,13 @@ packages/
   core/       canonical agent model + methodology versioning
   config/     env config loader
   erc8004/    ERC-8004 ABIs (from spec) + registration-file types
+  activity/   registered-wallet activity evidence (M4a)
   db/         Prisma schema + client (brief §24 entities)
   altana/     Altana adapter interface + test double (M7 real SDK)
   trust-engine/   deterministic scoring (M3)
   risk-engine/    deterministic risk modules (M5)
   execution/      policy + simulation pipeline (M5/M6)
-  contracts/      attestation contract (M4)
+  contracts/      Merkle attestation contract (M4b)
   pancakeswap/    PancakeSwap integration (M12)
   sdk/        shared client SDK
   ui/         shared UI components
@@ -65,7 +66,7 @@ docs/         architecture, security, methodology, recon, runbooks
 ## Milestone plan
 
 M0 repository baseline → M1 BSC+ERC-8004 → M2 discovery pipeline → M3 trust
-engine → M4 Merkle attestation → M5 policy engine → M6 simulation → M7 Altana →
+engine → M4 on-chain activity evidence + Merkle attestation → M5 policy engine → M6 simulation → M7 Altana →
 M8 execution passport → M9 marketplace backend → M10 frontend → M11 four
 categories → M12 PancakeSwap → M13 TermiX → M14 security hardening → M15 deploy →
 M16 demo rehearsal.
@@ -88,4 +89,5 @@ docker compose up -d        # Postgres for M1+
 - [x] M1 BNB Chain + ERC-8004 foundation (live registry addresses, viem reader, checkpointed indexer)
 - [x] M2 Agent discovery + data pipeline (metadata validation, SSRF-safe endpoint liveness, reputation normalization, provenance)
 - [x] M3 Trust engine (deterministic, versioned, transparent score+confidence; R-VIS preserved; Sybil concentration penalty; per-signal breakdown)
-- [ ] M4 On-chain activity verification (execution proofs / attestations)
+- [ ] M4a Registered-wallet activity evidence (transaction count only; no execution claims)
+- [ ] M4b Merkle score attestation contract

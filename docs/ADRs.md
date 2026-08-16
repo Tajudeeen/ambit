@@ -30,3 +30,18 @@ in-memory test double for M0-M6. Real SDK slotted at M7 once identified. No fake
 addresses, no fabricated onchain sessions.
 **Consequences:** Execution-plane unit tests run against the double; M7 swaps in
 the real adapter with live onchain verification.
+
+# ADR-0004: M4 separates wallet activity from execution verification
+
+**Status:** Accepted (M4)
+**Context:** An ERC-8004 agent may register an `agentWallet`. Its account nonce is
+a reproducible on-chain activity signal, but it cannot prove transaction recency,
+success rate, protocol usage, capital processed, or that transactions were
+authorized by the agent.
+**Decision:** M4a records registered-wallet linkage and transaction-count evidence
+at a specific chain head. It may set `verifiedActivity`, but it must not populate
+execution statistics or claim recency. M4b separately anchors deterministic score
+snapshots with a Merkle attestation contract. Tier-2 execution claims remain tied
+to receipts, decoded transactions, supported simulation, and Altana sessions.
+**Consequences:** The marketplace can distinguish basic on-chain footprint from
+execution-verified behavior without fabricating stronger claims from weak data.

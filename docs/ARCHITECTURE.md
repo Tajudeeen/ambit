@@ -15,7 +15,8 @@ BNB SMART CHAIN
         v
 INDEXING + EVIDENCE LAYER  (apps/indexer, packages/erc8004)
   discovery, metadata ingestion, endpoint verification, reputation ingestion,
-  activity detection, payment evidence, evidence normalization, freshness
+  registered-wallet linkage, transaction-count activity evidence, payment
+  evidence, evidence normalization, freshness
         |
         v
 TRUST ENGINE  (packages/trust-engine)         M3
@@ -26,7 +27,7 @@ EXECUTION CONTROL PLANE  (packages/execution) M5/M6
   policy -> tx decode -> validation -> risk -> supported simulation -> approve/reject -> execute -> record
         |
         v
-ATTESTATION LAYER  (packages/contracts)       M4
+ATTESTATION LAYER  (packages/contracts)       M4b
   score snapshots -> Merkle tree -> root -> BNB attestation contract
         |
         v
@@ -48,6 +49,11 @@ MARKETPLACE WEB APP  (apps/web)               M10
 - **R-EVIDENCE:** Every derived value is traceable to a source with provenance
   (block, txHash, timestamp, methodologyVersion). See `Evidence` in
   `packages/core/src/agent.ts`.
+- **R-ACTIVITY:** Tier-1 wallet activity means only that the ERC-8004 registered
+  `agentWallet` has sent an observable number of transactions at a recorded
+  chain head. Account nonce alone does not prove recency, successful execution,
+  agent-directed execution, volume, or protocol interaction. Those claims need
+  transaction receipts, decoded calls, or Tier-2 execution evidence.
 - **R-DET:** Policy and risk enforcement are deterministic. LLMs may explain,
   never decide (custody, approval, limits, allowlists, simulation, settlement).
 - **R-FAILCLOSED:** When policy/simulation/authorization/required evidence
