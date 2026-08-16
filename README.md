@@ -90,4 +90,4 @@ docker compose up -d        # Postgres for M1+
 - [x] M2 Agent discovery + data pipeline (metadata validation, SSRF-safe endpoint liveness, reputation normalization, provenance)
 - [x] M3 Trust engine (deterministic, versioned, transparent score+confidence; R-VIS preserved; Sybil concentration penalty; per-signal breakdown)
 - [x] M4a Registered-wallet activity evidence (transaction count only; no execution claims)
-- [ ] M4b Merkle score attestation contract
+- [x] M4b Merkle score attestation contract (append-only roots, deterministic proofs, compiler-verified ABI)
