@@ -1,0 +1,25 @@
+import { parseAbi } from 'viem';
+
+export const AMBIT_SCORE_ATTESTATION_ABI = parseAbi([
+  'constructor(address publisher_)',
+  'error ZeroPublisher()',
+  'error Unauthorized()',
+  'error EmptyRoot()',
+  'error EmptyMethodology()',
+  'error EmptyManifest()',
+  'error EmptySnapshot()',
+  'error FutureSourceBlock()',
+  'error InvalidChainId()',
+  'error InvalidIdentityRegistry()',
+  'error InvalidScore()',
+  'error InvalidConfidence()',
+  'error InvalidVerificationTier()',
+  'event RootPublished(uint256 indexed epoch, bytes32 indexed root, bytes32 indexed methodologyHash, bytes32 manifestHash, uint64 sourceBlock, uint32 leafCount)',
+  'function publisher() view returns (address)',
+  'function latestEpoch() view returns (uint256)',
+  'function attestations(uint256 epoch) view returns (bytes32 root, bytes32 methodologyHash, bytes32 manifestHash, uint64 sourceBlock, uint32 leafCount, uint64 publishedAtBlock, uint64 publishedAt)',
+  'function publishRoot(bytes32 root, bytes32 methodologyHash, bytes32 manifestHash, uint64 sourceBlock, uint32 leafCount) returns (uint256 epoch)',
+  'function leafHash((uint256 chainId, address identityRegistry, uint256 agentId, uint16 score, uint8 confidence, uint8 verificationTier, bytes32 methodologyHash, bytes32 evidenceHash, uint64 observedAtBlock) claim) pure returns (bytes32)',
+  'function verifyClaim(uint256 epoch, (uint256 chainId, address identityRegistry, uint256 agentId, uint16 score, uint8 confidence, uint8 verificationTier, bytes32 methodologyHash, bytes32 evidenceHash, uint64 observedAtBlock) claim, bytes32[] proof) view returns (bool)',
+  'function verifyProof(bytes32[] proof, bytes32 root, bytes32 leaf) pure returns (bool)',
+]);
