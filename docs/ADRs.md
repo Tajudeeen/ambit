@@ -16,7 +16,7 @@ own typecheck/lint/test script so `pnpm -r` gates run uniformly.
 **Context:** A marketplace that hides low-trust agents would narrow BNB's agent
 population and fight the adoption goal.
 **Decision:** All indexed agents are discoverable. Trust Score + Confidence only
-*rank and annotate*, never *hide*. See `docs/ARCHITECTURE.md` rule R-VIS.
+_rank and annotate_, never _hide_. See `docs/ARCHITECTURE.md` rule R-VIS.
 **Consequences:** Search/filter default to "all agents"; a dedicated
 "verified only" filter is opt-in, not the default.
 

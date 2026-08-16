@@ -5,7 +5,7 @@
 Ambit turns ERC-8004 agent identity into **evidence**, evidence into **trust**,
 and trust into **bounded execution**. It is a trust and controlled-execution
 infrastructure layer for autonomous agents, with a marketplace as its reference
-application — built for the BNB Chain *Build the Era* hackathon.
+application — built for the BNB Chain _Build the Era_ hackathon.
 
 ## Positioning
 
@@ -22,7 +22,7 @@ of BNB's agent economy — it does not replace Agent Studio.
 - **Tier 2 — Execution-verified agents:** agents that opt into execution receive
   a stronger layer — deterministic policy + risk + supported simulation, with
   onchain enforcement (Altana sessions). The deterministic engine is authoritative;
-  LLMs may *explain*, never *decide*.
+  LLMs may _explain_, never _decide_.
 
 ## Hard rules
 
@@ -89,5 +89,5 @@ docker compose up -d        # Postgres for M1+
 - [x] M1 BNB Chain + ERC-8004 foundation (live registry addresses, viem reader, checkpointed indexer)
 - [x] M2 Agent discovery + data pipeline (metadata validation, SSRF-safe endpoint liveness, reputation normalization, provenance)
 - [x] M3 Trust engine (deterministic, versioned, transparent score+confidence; R-VIS preserved; Sybil concentration penalty; per-signal breakdown)
-- [ ] M4a Registered-wallet activity evidence (transaction count only; no execution claims)
+- [x] M4a Registered-wallet activity evidence (transaction count only; no execution claims)
 - [ ] M4b Merkle score attestation contract

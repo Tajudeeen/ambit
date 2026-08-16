@@ -66,7 +66,7 @@ MARKETPLACE WEB APP  (apps/web)               M10
 
 ## Why this wins the main BNB prize
 
-The headline prize is *adoption as the official BNB Agent Studio marketplace*.
+The headline prize is _adoption as the official BNB Agent Studio marketplace_.
 Adoption requires (a) coverage of the existing 256k+ BSC agents, (b) a first-time
 user being able to discover and hire an agent without blockchain internals, and
 (c) a product BNB could keep operating. Ambit delivers breadth (R-VIS) + judgment
