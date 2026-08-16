@@ -60,3 +60,18 @@ scores.
 **Consequences:** Anyone can independently rebuild and verify a snapshot. Publisher
 rotation requires a new deployment, making authority changes explicit rather than
 silently mutable. Marketplace visibility remains independent of attestation state.
+
+# ADR-0006: M5 authorizes normalized intents only
+
+**Status:** Accepted (M5)
+**Context:** Policy decisions must be deterministic and fail closed, but calldata
+decoding, simulation, Altana sessions, and transaction submission arrive in later
+milestones.
+**Decision:** M5 evaluates versioned policies against normalized execution intents,
+explicit usage state, and a caller-supplied timestamp. Target/selector allowlists,
+identity bindings, expiries, value limits, token limits, slippage limits, and daily
+transaction counts are enforced without network calls or hidden state. An approval
+means only that the request satisfies policy.
+**Consequences:** M5 can be tested as a pure security boundary. M6 must reject when
+it cannot produce the normalized intent fields M5 requires, and later stages must
+still pass simulation, risk, session authorization, and final approval.
