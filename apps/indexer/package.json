@@ -14,6 +14,8 @@
     "@ambit/config": "workspace:*",
     "@ambit/core": "workspace:*",
     "@ambit/erc8004": "workspace:*",
+    "@ambit/endpoint": "workspace:*",
+    "@ambit/reputation": "workspace:*",
     "viem": "^2.55.16"
   },
   "devDependencies": {

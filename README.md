@@ -86,4 +86,5 @@ docker compose up -d        # Postgres for M1+
 
 - [x] M0 Repository + architecture baseline
 - [x] M1 BNB Chain + ERC-8004 foundation (live registry addresses, viem reader, checkpointed indexer)
-- [ ] M2 Agent discovery + data pipeline
+- [x] M2 Agent discovery + data pipeline (metadata validation, SSRF-safe endpoint liveness, reputation normalization, provenance)
+- [ ] M3 Trust engine

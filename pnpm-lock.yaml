@@ -57,9 +57,15 @@ importers:
       '@ambit/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@ambit/endpoint':
+        specifier: workspace:*
+        version: link:../../packages/endpoint
       '@ambit/erc8004':
         specifier: workspace:*
         version: link:../../packages/erc8004
+      '@ambit/reputation':
+        specifier: workspace:*
+        version: link:../../packages/reputation
       viem:
         specifier: ^2.55.16
         version: 2.55.16(typescript@5.9.3)
@@ -134,11 +140,42 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/endpoint:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)(supports-color@7.2.0)
+
   packages/erc8004:
     dependencies:
       viem:
         specifier: ^2.55.16
         version: 2.55.16(typescript@5.9.3)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.1)(supports-color@7.2.0)
+
+  packages/reputation:
+    dependencies:
+      '@ambit/core':
+        specifier: workspace:*
+        version: link:../core
+      '@ambit/erc8004':
+        specifier: workspace:*
+        version: link:../erc8004
     devDependencies:
       '@types/node':
         specifier: ^22.10.0

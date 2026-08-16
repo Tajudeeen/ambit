@@ -1,6 +1,15 @@
-import { Erc8004Reader, getNetwork, resolveAgentURI, type RegisteredEvent } from '@ambit/erc8004';
+import {
+  Erc8004Reader,
+  getNetwork,
+  resolveAgentURI,
+  validateRegistrationFile,
+  type RegisteredEvent,
+  type NewFeedbackEvent,
+} from '@ambit/erc8004';
 import { createBscClient } from '@ambit/erc8004';
-import type { Agent } from '@ambit/core';
+import type { Agent, Evidence, EndpointStatus } from '@ambit/core';
+import { probeEndpoint, type ProbeResult } from '@ambit/endpoint';
+import { normalizeFeedback, summarizeReputation } from '@ambit/reputation';
 
 import { getConfig } from '@ambit/config';
 import { MemoryCheckpointStore, nextStartBlock, type CheckpointStore } from './checkpoint.js';
@@ -18,32 +27,52 @@ export interface IndexerDeps {
   /** Optional sink for unresolved URIs (so we never silently drop data). */
   onUnresolved?: (ev: RegisteredEvent, reason: string) => void;
   fetchImpl?: typeof fetch;
+  /** Override endpoint prober (tests inject a fake). */
+  probeImpl?: (url: string) => Promise<ProbeResult>;
+  /** Override reputation events source (tests inject fixtures). */
+  feedbackSource?: (from: bigint, to: bigint) => Promise<NewFeedbackEvent[]>;
 }
 
 /**
- * Build a partial canonical Agent from a Registered event + resolved metadata.
- * This is the seed record the trust engine (M3) and discovery (M2) enrich later.
+ * M2 enrichment: from a Registered event + resolved metadata JSON, build the
+ * canonical Agent seed AND validate the metadata + resolve the endpoint.
+ *
+ * - Malformed metadata is recorded, never fabricated (agent stays discoverable
+ *   with a `metadataValid: false` flag — R-VIS: trust never gates visibility).
+ * - Endpoint is probed through the SSRF-safe verifier; failures are recorded as
+ *   evidence, not hidden.
  */
 export function eventToAgent(
   ev: RegisteredEvent,
   net: ReturnType<typeof getNetwork>,
   rawMetadataJson: string,
   resolvedAt: string,
+  probe: ProbeResult | null,
 ): Agent {
-  let name = `Agent ${ev.agentId}`;
-  let description = '';
-  let capabilities: string[] = [];
+  const valid = validateRegistrationFile(safeParse(rawMetadataJson));
+  const reg = valid.ok ? valid.data : null;
+  const raw = safeParse(rawMetadataJson) as { name?: string; description?: string } | null;
+  const name = reg?.name ?? raw?.name ?? `Agent ${ev.agentId}`;
+  const description = reg?.description ?? raw?.description ?? '';
+  const capabilities = (reg?.services ?? []).map((s) => s.name ?? '').filter(Boolean);
+  const epUrl = firstEndpoint(rawMetadataJson); // lenient: endpoint even if other fields invalid
+
   let endpoint: Agent['endpoint'] = null;
-  try {
-    const reg = JSON.parse(rawMetadataJson) as { name?: string; description?: string; services?: Array<{ name?: string; endpoint?: string }> };
-    if (reg.name) name = reg.name;
-    if (reg.description) description = reg.description;
-    capabilities = (reg.services ?? []).map((s) => s.name ?? '').filter(Boolean);
-    const ep = reg.services?.[0]?.endpoint;
-    if (ep) endpoint = { url: ep, status: 'unknown', lastChecked: resolvedAt };
-  } catch {
-    // Malformed metadata is recorded, not fabricated. See onUnresolved.
+  if (epUrl) {
+    const status: EndpointStatus = probe ? probe.status === 'blocked' ? 'down' : probe.status : 'unknown';
+    endpoint = { url: epUrl, status, lastChecked: resolvedAt, latencyMs: probe?.latencyMs };
   }
+
+  const evidence: Evidence[] = [
+    { source: 'erc8004-identity', timestamp: resolvedAt, blockNumber: Number(ev.blockNumber), txHash: ev.txHash, methodologyVersion: 'v0.0.0' },
+  ];
+  if (!valid.ok) {
+    evidence.push({ source: 'metadata-validation', timestamp: resolvedAt, methodologyVersion: 'v0.0.0' });
+  }
+  if (probe && probe.status === 'blocked') {
+    evidence.push({ source: 'endpoint-ssrf-blocked', timestamp: resolvedAt, methodologyVersion: 'v0.0.0' });
+  }
+
   const agentRegistry = `eip155:${net.chainId}:${net.identityRegistry}:${ev.agentId}`;
   return {
     agentRegistry,
@@ -57,7 +86,7 @@ export function eventToAgent(
     category: null, // assigned by trust engine / category classifier (M3/M11)
     capabilities,
     endpoint,
-    reputation: null,
+    reputation: null, // filled by ingestReputation
     paymentEvidence: [],
     verifiedActivity: false,
     trust: null,
@@ -67,28 +96,62 @@ export function eventToAgent(
     executionVerified: false,
     executionStats: { verifiedExecutions: 0, blockedActions: 0, successRate: null, capitalProcessed: '0' },
     policy: null,
-    evidenceRefs: [{ source: 'erc8004-identity', timestamp: resolvedAt, blockNumber: Number(ev.blockNumber), txHash: ev.txHash, methodologyVersion: 'v0.0.0' }],
+    evidenceRefs: evidence,
     lastIndexedBlock: Number(ev.blockNumber),
     lastIndexedAt: resolvedAt,
   };
 }
 
+function safeParse(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Ingest reputation for the agents discovered in this range. Reads NewFeedback
+ * events, normalizes, and attaches a ReputationSummary + Sybil concentration to
+ * each agent. Returns a map agentId -> ReputationSummary. (M3 turns this into a
+ * Trust Score; here we only normalize + label quality.)
+ */
+export function buildReputationMap(
+  feedback: NewFeedbackEvent[],
+  nowIso: string,
+): Map<string, ReturnType<typeof summarizeReputation>> {
+  const norm = normalizeFeedback(feedback);
+  const byAgent = new Map<string, typeof norm>();
+  for (const f of norm) {
+    const arr = byAgent.get(f.agentId) ?? [];
+    arr.push(f);
+    byAgent.set(f.agentId, arr);
+  }
+  const out = new Map<string, ReturnType<typeof summarizeReputation>>();
+  for (const [agentId, evts] of byAgent) {
+    out.set(agentId, summarizeReputation(evts, nowIso));
+  }
+  return out;
+}
+
 /**
  * One deterministic indexing pass: query [start, toBlock], dedupe by
- * (txHash,logIndex), resolve metadata, emit agents. Returns the block reached.
+ * (txHash,logIndex), resolve + validate metadata, probe endpoints (SSRF-safe),
+ * ingest reputation, emit agents. Returns the block reached.
  *
  * Idempotent: re-running with the same checkpoint range produces the same
- * agents (metadata resolution is pure given the same chain state).
+ * agents (resolution + normalization are pure given the same chain state).
  */
 export async function indexOnce(deps: IndexerDeps): Promise<{ toBlock: number; agents: number }> {
   const net = getNetwork(deps.chainId);
   const client = createBscClient(deps.rpcUrl, deps.chainId === 97);
   const reader = new Erc8004Reader(client, net);
+  const probe = deps.probeImpl ?? ((url: string) => probeEndpoint(url, deps.fetchImpl));
+  const feedbackSrc = deps.feedbackSource ?? ((from, to) => reader.getNewFeedbackEvents(from, to));
 
   const cp = await deps.checkpoint.get(deps.chainId, net.identityRegistry);
   const start: bigint = BigInt(nextStartBlock(net, net.identityRegistry, cp));
   const head: bigint = deps.toBlock != null ? BigInt(deps.toBlock) : await client.getBlockNumber();
-  // Nothing new to scan: head is behind the resume point (or chain reorg gap).
   if (head < start) {
     return { toBlock: Number(start - 1n), agents: 0 };
   }
@@ -98,10 +161,17 @@ export async function indexOnce(deps: IndexerDeps): Promise<{ toBlock: number; a
   let count = 0;
   if (batchEnd >= start) {
     const events = await reader.getRegisteredEvents(start, batchEnd);
+    const feedback = await feedbackSrc(start, batchEnd);
+    const repMap = buildReputationMap(feedback, new Date().toISOString());
+
     for (const ev of events) {
       try {
         const raw = await resolveAgentURI(ev.agentURI, deps.fetchImpl);
-        const agent = eventToAgent(ev, net, raw, new Date().toISOString());
+        const epUrl = firstEndpoint(raw);
+        const probeRes = epUrl ? await probe(epUrl) : null;
+        const agent = eventToAgent(ev, net, raw, new Date().toISOString(), probeRes);
+        const rep = repMap.get(ev.agentId.toString());
+        if (rep) agent.reputation = rep;
         deps.onAgent?.(agent, ev);
         count++;
       } catch (e) {
@@ -114,18 +184,28 @@ export async function indexOnce(deps: IndexerDeps): Promise<{ toBlock: number; a
   return { toBlock: Number(batchEnd), agents: count };
 }
 
+/** Extract the first service endpoint from raw metadata (validation not required here). */
+function firstEndpoint(raw: string): string | null {
+  const p = safeParse(raw);
+  if (p && typeof p === 'object' && 'services' in p && Array.isArray((p as { services: unknown[] }).services)) {
+    const s = (p as { services: Array<{ endpoint?: string }> }).services[0];
+    return s?.endpoint ?? null;
+  }
+  return null;
+}
+
 /** CLI entrypoint: run a single pass and exit (no DB write yet — M2 persists). */
 export async function main(): Promise<void> {
   const cfg = getConfig();
   const store = new MemoryCheckpointStore();
-  console.log(`[ambit-indexer] M1 — indexing BSC ERC-8004 from live registry ${cfg.erc8004.identityRegistry || '(configured below)'}`);
+  console.log(`[ambit-indexer] M2 — indexing BSC ERC-8004 (identity + metadata + reputation)`);
   const { toBlock, agents } = await indexOnce({
     rpcUrl: cfg.bsc.rpcUrl,
     chainId: cfg.bsc.chainId,
     checkpoint: store,
     batchSize: cfg.indexer.batchSize,
-    onAgent: (a) => console.log(`  + ${a.agentRegistry} (${a.name})`),
+    onAgent: (a) => console.log(`  + ${a.agentRegistry} (${a.name}) ep=${a.endpoint?.status ?? 'none'} rep=${a.reputation?.feedbackCount ?? 0}`),
     onUnresolved: (ev, reason) => console.warn(`  ! agentId ${ev.agentId} unresolved: ${reason}`),
   });
-  console.log(`[ambit-indexer] M1 pass complete: reached block ${toBlock}, ${agents} new agent(s) in range.`);
+  console.log(`[ambit-indexer] M2 pass complete: reached block ${toBlock}, ${agents} new agent(s).`);
 }

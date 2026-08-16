@@ -15,13 +15,15 @@ const net = getNetwork(56);
 function fakeClient(events: RegisteredEvent[]): PublicClient {
   return {
     getBlockNumber: async () => 41_000_100n,
-    getContractEvents: async () =>
-      events.map((e) => ({
-        args: { agentId: e.agentId, agentURI: e.agentURI, owner: e.owner },
-        blockNumber: e.blockNumber,
-        transactionHash: e.txHash,
-        logIndex: e.logIndex,
-      })),
+    getContractEvents: async (req: { eventName?: string }) =>
+      req.eventName === 'NewFeedback'
+        ? []
+        : events.map((e) => ({
+            args: { agentId: e.agentId, agentURI: e.agentURI, owner: e.owner },
+            blockNumber: e.blockNumber,
+            transactionHash: e.txHash,
+            logIndex: e.logIndex,
+          })),
   } as unknown as PublicClient;
 }
 
@@ -51,6 +53,7 @@ describe('indexOnce integration (hermetic, real event shape)', () => {
       checkpoint: new MemoryCheckpointStore(),
       batchSize: 200,
       toBlock: 41_000_100,
+      probeImpl: async (u) => ({ url: u, status: 'up', checkedAt: '' }),
       onAgent: (a) => emitted.push(a.agentRegistry),
     });
     expect(agents).toBe(1);
@@ -60,9 +63,9 @@ describe('indexOnce integration (hermetic, real event shape)', () => {
 
   it('is idempotent: same checkpoint range re-emits only new events', async () => {
     const store = new MemoryCheckpointStore();
-    const first = await indexOnce({ rpcUrl: 'http://fake', chainId: 56, checkpoint: store, batchSize: 200, toBlock: 41_000_100 });
+    const first = await indexOnce({ rpcUrl: 'http://fake', chainId: 56, checkpoint: store, batchSize: 200, toBlock: 41_000_100, probeImpl: async (u) => ({ url: u, status: 'up', checkedAt: '' }) });
     // Re-run should resume from checkpoint+1 -> 41_000_101 > toBlock(41_000_100) -> no scan
-    const second = await indexOnce({ rpcUrl: 'http://fake', chainId: 56, checkpoint: store, batchSize: 200, toBlock: 41_000_100 });
+    const second = await indexOnce({ rpcUrl: 'http://fake', chainId: 56, checkpoint: store, batchSize: 200, toBlock: 41_000_100, probeImpl: async (u) => ({ url: u, status: 'up', checkedAt: '' }) });
     expect(first.agents).toBe(1);
     expect(second.agents).toBe(0);
   });
