@@ -1,0 +1,87 @@
+/**
+ * Environment configuration loader.
+ *
+ * Reads from process.env with safe defaults. No .env file is committed; the
+ * consumer is expected to load dotenv (or the platform's secret manager)
+ * before importing this module. Every value here is either non-secret (RPC
+ * URLs, contract addresses) or a reference to a secret that must NOT be logged.
+ */
+export interface ChainConfig {
+  rpcUrl: string;
+  chainId: number;
+}
+
+export interface Config {
+  bsc: ChainConfig;
+  bscTestnet: ChainConfig;
+  erc8004: {
+    identityRegistry: string;
+    reputationRegistry: string;
+  };
+  databaseUrl: string;
+  apiPort: number;
+  webApiUrl: string;
+  indexer: {
+    batchSize: number;
+    startBlock?: number;
+  };
+}
+
+function req(name: string): string {
+  const v = process.env[name];
+  if (!v) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return v;
+}
+
+function opt(name: string, fallback: string): string {
+  return process.env[name] ?? fallback;
+}
+
+function intOpt(name: string, fallback: number): number {
+  const v = process.env[name];
+  if (!v) return fallback;
+  const n = Number(v);
+  if (!Number.isFinite(n)) throw new Error(`Environment variable ${name} must be a number`);
+  return n;
+}
+
+export function loadConfig(): Config {
+  return {
+    bsc: {
+      rpcUrl: opt('BSC_RPC_URL', 'https://bsc-dataseed.binance.org'),
+      chainId: intOpt('BSC_CHAIN_ID', 56),
+    },
+    bscTestnet: {
+      rpcUrl: opt('BSC_TESTNET_RPC_URL', 'https://data-seed-prebsc-1-s1.binance.org:8545'),
+      chainId: intOpt('BSC_TESTNET_CHAIN_ID', 97),
+    },
+    erc8004: {
+      identityRegistry: opt('ERC8004_IDENTITY_REGISTRY_BSC', ''),
+      reputationRegistry: opt('ERC8004_REPUTATION_REGISTRY_BSC', ''),
+    },
+    databaseUrl: req('DATABASE_URL'),
+    apiPort: intOpt('API_PORT', 8787),
+    webApiUrl: opt('NEXT_PUBLIC_API_URL', 'http://localhost:8787'),
+    indexer: {
+      batchSize: intOpt('INDEXER_BATCH_SIZE', 200),
+      startBlock: process.env.INDEXER_START_BLOCK
+        ? intOpt('INDEXER_START_BLOCK', 0)
+        : undefined,
+    },
+  };
+}
+
+let cached: Config | null = null;
+
+/** Load config once and memoize. Call `reloadConfig()` in tests if needed. */
+export function getConfig(): Config {
+  if (!cached) cached = loadConfig();
+  return cached;
+}
+
+export function reloadConfig(): Config {
+  cached = loadConfig();
+  return cached;
+}

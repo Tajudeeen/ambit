@@ -1,0 +1,26 @@
+{
+  "name": "ambit",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Verified marketplace for autonomous agents on BNB Smart Chain (ERC-8004). Trust and bounded-execution infrastructure with a marketplace reference application.",
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "eslint": "^9.15.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.0",
+    "vitest": "^2.1.8"
+  },
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=20"
+  }
+}

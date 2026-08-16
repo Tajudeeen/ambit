@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.next/
+out/
+artifacts/
+cache/
+lib/
+typechain-types/
+.env
+.env.local
+.env.*.local
+*.log
+coverage/
+.DS_Store
+solc-cache/
+.foundry-cache/

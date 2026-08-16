@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ambit-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ambit
+      POSTGRES_PASSWORD: ambit
+      POSTGRES_DB: ambit
+    ports:
+      - '5432:5432'
+    volumes:
+      - ambit-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ambit -d ambit']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ambit-pg-data:

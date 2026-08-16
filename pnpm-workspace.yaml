@@ -1,0 +1,14 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+onlyBuiltDependencies:
+  - esbuild
+  - "@prisma/client"
+  - prisma
+  - sharp
+
+# Local dev only: allow postinstall build scripts (esbuild/prisma binaries) to run
+# without interactive approval. CI uses the same config. Do NOT use in production
+# package publishing contexts.
+dangerouslyAllowAllBuilds: true
