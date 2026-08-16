@@ -1,10 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryCheckpointStore } from '../src/checkpoint.js';
 import { indexOnce } from '../src/indexer.js';
-import { getNetwork, type RegisteredEvent } from '@ambit/erc8004';
+import type { RegisteredEvent } from '@ambit/erc8004';
 import type { PublicClient } from 'viem';
 
-const net = getNetwork(56);
 const WALLET = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as `0x${string}`;
 
 // Fake viem client supporting everything indexOnce touches for M4:
