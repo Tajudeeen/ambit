@@ -10,6 +10,7 @@ import { createBscClient } from '@ambit/erc8004';
 import type { Agent, Evidence, EndpointStatus } from '@ambit/core';
 import { probeEndpoint, type ProbeResult } from '@ambit/endpoint';
 import { normalizeFeedback, summarizeReputation } from '@ambit/reputation';
+import { scoreAgent, withTrust } from '@ambit/trust-engine';
 
 import { getConfig } from '@ambit/config';
 import { MemoryCheckpointStore, nextStartBlock, type CheckpointStore } from './checkpoint.js';
@@ -172,7 +173,8 @@ export async function indexOnce(deps: IndexerDeps): Promise<{ toBlock: number; a
         const agent = eventToAgent(ev, net, raw, new Date().toISOString(), probeRes);
         const rep = repMap.get(ev.agentId.toString());
         if (rep) agent.reputation = rep;
-        deps.onAgent?.(agent, ev);
+        const scored = withTrust(agent, scoreAgent(agent));
+        deps.onAgent?.(scored, ev);
         count++;
       } catch (e) {
         deps.onUnresolved?.(ev, e instanceof Error ? e.message : String(e));
