@@ -45,3 +45,18 @@ snapshots with a Merkle attestation contract. Tier-2 execution claims remain tie
 to receipts, decoded transactions, supported simulation, and Altana sessions.
 **Consequences:** The marketplace can distinguish basic on-chain footprint from
 execution-verified behavior without fabricating stronger claims from weak data.
+
+# ADR-0005: Score attestations are append-only Merkle roots
+
+**Status:** Accepted (M4b)
+**Context:** Trust scores are deterministic offchain outputs over large evidence
+sets. Storing every score and evidence record onchain would be expensive, while
+a mutable root would weaken auditability.
+**Decision:** Publish append-only Merkle roots from one immutable deployment
+publisher. Leaves use typed ABI encoding, double hashing, sorted pairs, and bind
+agent identity, score, confidence, verification tier, methodology, evidence, and
+observation block. The contract verifies claims but never computes or changes
+scores.
+**Consequences:** Anyone can independently rebuild and verify a snapshot. Publisher
+rotation requires a new deployment, making authority changes explicit rather than
+silently mutable. Marketplace visibility remains independent of attestation state.
