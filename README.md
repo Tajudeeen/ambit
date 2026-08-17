@@ -57,7 +57,7 @@ packages/
   risk-engine/    deterministic risk modules (M5)
   execution/      policy + simulation pipeline (M5/M6)
   contracts/      Merkle attestation contract (M4b)
-  pancakeswap/    PancakeSwap integration (M12)
+  pancakeswap/    quote-bound official PancakeSwap Universal Router adapter (M12)
   sdk/        shared client SDK
   ui/         shared UI components
   testing/    shared test fixtures/utilities
@@ -99,3 +99,4 @@ docker compose up -d        # Postgres for M1+
 - [x] M9 Marketplace backend (search/profile/history routes, pending-only hires, deterministic ranking, injected Prisma repository)
 - [x] M10 Marketplace frontend (live URL-driven discovery, evidence profiles, same-origin pending-hire proxy, explicit empty/error states)
 - [x] M11 Four agent categories (versioned deterministic metadata classifier, ambiguity evidence, explicit marketplace category entry points)
+- [x] M12 PancakeSwap integration (pinned official SDKs, quote-bound exact-input V2/V3 calldata, decoded spend/slippage, fail-closed simulation path)
