@@ -177,3 +177,22 @@ or ambiguity evidence without changing trust or visibility.
 and multi-purpose agents remain visible. Taxonomy changes are reviewable code
 changes, and category labels cannot be mistaken for independent verification or
 execution authorization.
+
+# ADR-0013: M12 binds PancakeSwap calldata to explicit quote evidence
+
+**Status:** Accepted (M12)
+**Context:** PancakeSwap provides official quoting and Universal Router SDKs, but
+SDK output and request metadata are not security evidence. Universal Router can
+compose permits, transfers, fees, sub-plans, native wrapping, and multiple swap
+families; accepting arbitrary command plans would bypass M5 token and slippage
+limits or redirect output away from the executing wallet.
+**Decision:** Pin the official Smart Router and Universal Router SDK versions in
+`@ambit/pancakeswap`. M12 supports only one exact-input V2 or V3 ERC-20 command
+on BSC, with caller payment, output returned to the Altana sender, an explicit
+deadline, zero native value, and calldata-bound quote evidence. The adapter
+derives token spend and slippage for the M6 decoder; unsupported command plans
+fail closed and never reach simulation or Altana.
+**Consequences:** Ambit gains a real PancakeSwap trader path without creating new
+custody or trusting opaque router plans. The initial surface is intentionally
+narrow; native assets, exact-output trades, split routes, stable/Infinity pools,
+Permit2 composition, and fee commands require future audited decoders.

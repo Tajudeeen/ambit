@@ -27,6 +27,10 @@ EXECUTION CONTROL PLANE  (packages/execution) M5/M6
   policy -> tx decode -> validation -> risk -> supported simulation -> approve/reject -> execute
         |
         v
+PANCAKESWAP ADAPTER  (packages/pancakeswap)   M12
+  official quote/call SDK -> quote-bound calldata validation -> M6 decoder
+        |
+        v
 EXECUTION PASSPORT  (packages/passport) M8
   receipt + canonical block verification -> idempotent passport persistence
         |
@@ -79,6 +83,10 @@ MARKETPLACE WEB APP  (apps/web)               M10
 - **R-CATEGORY:** Category is derived only from valid registration metadata by a
   versioned deterministic classifier. Unknown or conflicting signals remain
   uncategorized and discoverable; category never changes trust or authority.
+- **R-SWAP:** PancakeSwap calls are approved only when the official router,
+  exact-input calldata, token path, recipient, deadline, and minimum output match
+  explicit quote evidence. Decoded effects drive policy; caller-provided swap
+  labels or slippage never weaken the execution boundary.
 
 ## Why this wins the main BNB prize
 
