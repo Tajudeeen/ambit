@@ -91,3 +91,21 @@ evidence, block mismatch, and reverts all fail closed.
 generic calldata guesses. Simulation evidence is reproducible and independently
 testable, while M7 authorization, signing, submission, and receipt verification
 remain separate mandatory stages.
+
+# ADR-0008: M7 submits exact approved calls through registered Altana sessions
+
+**Status:** Accepted (M7)
+**Context:** The official Altana SDK is now publicly verifiable and exposes
+EIP-7702 admin/session APIs plus raw relay calls. Ambit must not reconstruct or
+mutate calldata after M6 simulation, give admin authority to agents, or treat an
+unregistered session as publicly verifiable execution authority.
+**Decision:** Pin the verified Altana 0.5.1 SDK in `@ambit/altana`. A trusted
+admin adapter grants only registered sessions using explicit timestamps and
+bounded permissions. A separate session executor accepts only approved M6
+decisions and relays the exact simulated target, calldata, and value after
+checking the configured chain and session wallet.
+**Consequences:** Altana's on-chain validator remains the final session authority,
+while Ambit's deterministic policy and simulation remain mandatory upstream
+checks. Relay submission with a transaction hash is not a success claim; M8 must
+verify the receipt and persist execution evidence. GPL license obligations for
+the pinned Altana dependency must be preserved by deployments and distributions.

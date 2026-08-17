@@ -43,7 +43,7 @@ discoverability problem is real; there is genuine data to index.
 - Identity Registry = ERC-721 (tokenId = agentId, tokenURI = agentURI) with
   `getMetadata`/`setMetadata`/`setAgentURI`/`setAgentWallet` (EIP-712/1271).
 - Reputation Registry = `giveFeedback(agentId, int128 value, uint8 valueDecimals,
-  tag1, tag2, endpoint, feedbackURI, feedbackHash)`; `NewFeedback` event.
+tag1, tag2, endpoint, feedbackURI, feedbackHash)`; `NewFeedback` event.
 - Three registries: Identity, Reputation, Validation (TEE/zkML/staking — out of
   scope M0-M3).
 - Payments are orthogonal; x402 is an optional example to enrich feedback.
@@ -55,6 +55,13 @@ discoverability problem is real; there is genuine data to index.
   yet pinned. → M7 built behind the `@ambit/altana` adapter interface with a
   documented "verify-before-integrate" stance; real SDK slotted once identified.
   No fake addresses.
+- **M7 update (supersedes the preceding Altana open-gap note):** the official BNB
+  Agent SDK at `github.com/bnb-chain/bnbagent-sdk` ships `AltanaWalletProvider`,
+  and the canonical package is `@altananetwork/sdk` with docs at
+  `docs.altana.network`. M7 pins the verified 0.5.1 API because BNBAgent SDK
+  0.5.0 supports Altana `>=0.3.3 <0.6.0`; newer Altana releases are outside that
+  verified peer range. No addresses are copied or guessed—network presets come
+  from the official SDK.
 - **Exact BSC ERC-8004 contract addresses:** the 8004scan `/contracts` page is
   dead, but `/networks` lists per-chain registry addresses. → resolved at M1
   start from that live page (authoritative), not guessed.
