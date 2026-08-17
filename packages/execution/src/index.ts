@@ -174,6 +174,7 @@ export interface ExecutionPipelineDecision {
   checks: readonly ExecutionPipelineCheck[];
   rejectionReasons: readonly ExecutionPipelineCheckCode[];
   decoderId?: string;
+  request?: RawExecutionRequest;
   intent?: ExecutionIntent;
   policyDecision?: PolicyDecision;
   simulation?: SimulationEvidence;
@@ -453,14 +454,14 @@ export async function evaluateSimulatedExecution(
     decoded = decoder.decode(request);
   } catch {
     checks.push(pipelineFail('decode-failed', `decoder ${decoder.id} failed`));
-    return pipelineDecision(checks, { decoderId: decoder.id });
+    return pipelineDecision(checks, { decoderId: decoder.id, request });
   }
   const tokenTransfers = decodedTokenTransfers(decoded);
   if (tokenTransfers === undefined) {
     checks.push(
       pipelineFail('invalid-decoded-intent', `decoder ${decoder.id} returned invalid effects`),
     );
-    return pipelineDecision(checks, { decoderId: decoder.id });
+    return pipelineDecision(checks, { decoderId: decoder.id, request });
   }
 
   const intent: ExecutionIntent = {
@@ -478,7 +479,7 @@ export async function evaluateSimulatedExecution(
   const intentValidation = validateExecutionIntent(intent);
   if (!intentValidation.valid) {
     checks.push(pipelineFail('invalid-decoded-intent', intentValidation.errors.join('; ')));
-    return pipelineDecision(checks, { decoderId: decoder.id });
+    return pipelineDecision(checks, { decoderId: decoder.id, request });
   }
 
   const policyDecision = evaluateExecutionPolicy(input.policy, intent, input.usage, input.now);
@@ -489,7 +490,7 @@ export async function evaluateSimulatedExecution(
         `policy rejected: ${policyDecision.rejectionReasons.join(', ')}`,
       ),
     );
-    return pipelineDecision(checks, { decoderId: decoder.id, intent, policyDecision });
+    return pipelineDecision(checks, { decoderId: decoder.id, request, intent, policyDecision });
   }
 
   const simulationRequest: SimulationRequest = {
@@ -505,12 +506,12 @@ export async function evaluateSimulatedExecution(
     simulationResult = await input.simulator.simulate(simulationRequest);
   } catch {
     checks.push(pipelineFail('simulation-unavailable', 'simulation adapter failed'));
-    return pipelineDecision(checks, { decoderId: decoder.id, intent, policyDecision });
+    return pipelineDecision(checks, { decoderId: decoder.id, request, intent, policyDecision });
   }
   const simulationValidation = validateSimulationEvidence(simulationResult, input.blockNumber);
   if (!simulationValidation.valid) {
     checks.push(pipelineFail('invalid-simulation', simulationValidation.errors.join('; ')));
-    return pipelineDecision(checks, { decoderId: decoder.id, intent, policyDecision });
+    return pipelineDecision(checks, { decoderId: decoder.id, request, intent, policyDecision });
   }
 
   const simulation = simulationResult as SimulationEvidence;
@@ -523,6 +524,7 @@ export async function evaluateSimulatedExecution(
     );
     return pipelineDecision(checks, {
       decoderId: decoder.id,
+      request,
       intent,
       policyDecision,
       simulation,
@@ -531,6 +533,7 @@ export async function evaluateSimulatedExecution(
 
   return pipelineDecision(checks, {
     decoderId: decoder.id,
+    request,
     intent,
     policyDecision,
     simulation,
@@ -695,7 +698,10 @@ function validateSimulationEvidence(
 function pipelineDecision(
   checks: readonly ExecutionPipelineCheck[],
   context: Partial<
-    Pick<ExecutionPipelineDecision, 'decoderId' | 'intent' | 'policyDecision' | 'simulation'>
+    Pick<
+      ExecutionPipelineDecision,
+      'decoderId' | 'request' | 'intent' | 'policyDecision' | 'simulation'
+    >
   > = {},
 ): ExecutionPipelineDecision {
   const rejectionReasons = checks.filter((check) => !check.passed).map((check) => check.code);
