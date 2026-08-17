@@ -1,5 +1,7 @@
 import { prisma } from '@ambit/db';
 import { Hono, type Context } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
+import { secureHeaders } from 'hono/secure-headers';
 import {
   MarketplaceConflictError,
   MarketplaceNotFoundError,
@@ -14,6 +16,7 @@ import {
 import { createPrismaMarketplaceRepository } from './prisma-repository.js';
 
 export const health = (context: Context) => context.json({ status: 'ok', service: 'ambit-api' });
+export const HIRE_REQUEST_BODY_LIMIT_BYTES = 16 * 1024;
 
 export interface CreateAppOptions {
   repository?: MarketplaceRepository;
@@ -24,6 +27,7 @@ export function createApp(options: CreateAppOptions = {}): Hono {
   const app = new Hono();
 
   app.onError((error, context) => errorResponse(error, context));
+  app.use('*', secureHeaders());
   app.get('/health', health);
   app.get('/ready', async (context) => {
     try {
@@ -55,18 +59,35 @@ export function createApp(options: CreateAppOptions = {}): Hono {
     return context.json(await repository.listExecutions(agentRegistry, query));
   });
 
-  app.post('/agents/:agentRegistry/hire', async (context) => {
-    const agentRegistry = requireAgentRegistry(context.req.param('agentRegistry'));
-    let body: unknown;
-    try {
-      body = await context.req.json();
-    } catch {
-      throw new RequestValidationError(['request body must be valid JSON']);
-    }
-    const input = parseHireAgentInput(body);
-    const request = await repository.createHire(agentRegistry, input);
-    return context.json({ request }, 202);
-  });
+  app.post(
+    '/agents/:agentRegistry/hire',
+    bodyLimit({
+      maxSize: HIRE_REQUEST_BODY_LIMIT_BYTES,
+      onError: (context) =>
+        context.json(
+          {
+            error: {
+              code: 'payload-too-large',
+              message: `request body exceeds ${HIRE_REQUEST_BODY_LIMIT_BYTES} byte limit`,
+            },
+          },
+          413,
+        ),
+    }),
+    async (context) => {
+      requireJsonContentType(context);
+      const agentRegistry = requireAgentRegistry(context.req.param('agentRegistry'));
+      let body: unknown;
+      try {
+        body = await context.req.json();
+      } catch {
+        throw new RequestValidationError(['request body must be valid JSON']);
+      }
+      const input = parseHireAgentInput(body);
+      const request = await repository.createHire(agentRegistry, input);
+      return context.json({ request }, 202);
+    },
+  );
 
   app.get('/agents/:agentRegistry', async (context) => {
     const agentRegistry = requireAgentRegistry(context.req.param('agentRegistry'));
@@ -81,6 +102,13 @@ export function createApp(options: CreateAppOptions = {}): Hono {
 function requireAgentRegistry(value: string): string {
   if (!isAgentRegistry(value)) throw new RequestValidationError(['agentRegistry is invalid']);
   return value;
+}
+
+function requireJsonContentType(context: Context): void {
+  const mediaType = context.req.header('content-type')?.split(';', 1)[0]?.trim().toLowerCase();
+  if (mediaType !== 'application/json') {
+    throw new RequestValidationError(['content-type must be application/json']);
+  }
 }
 
 function errorResponse(error: Error, context: Context): Response {

@@ -95,6 +95,11 @@ MARKETPLACE WEB APP  (apps/web)               M10
   with/without task pairs using versioned integer arithmetic and evidence
   references. Read-only AACP discovery never implies job funding, delivery,
   evaluation, settlement, trust, or execution authorization.
+- **R-HARDEN:** Public mutation requests are bounded and media-type validated
+  before parsing, defensive response headers apply consistently, and
+  security-relevant numeric configuration accepts only explicit bounded safe
+  integers. Unknown identity, proxy, or transport guarantees are never invented;
+  ambiguous security state fails closed.
 
 ## Why this wins the main BNB prize
 
