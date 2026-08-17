@@ -36,7 +36,7 @@ ATTESTATION LAYER  (packages/contracts)       M4b
         |
         v
 MARKETPLACE API  (apps/api)                   M9
-  search, filter, rank, profiles, evidence, hiring, authorization, execution history
+  validated HTTP -> repository -> search/rank, profiles, pending hires, execution history
         |
         v
 MARKETPLACE WEB APP  (apps/web)               M10
@@ -70,6 +70,9 @@ MARKETPLACE WEB APP  (apps/web)               M10
 - **R-PASSPORT:** A relay hash is not an execution claim. Successful execution
   requires a receipt matched to the exact approved request, a canonical block,
   explicit confirmations, and durable passport persistence.
+- **R-API:** Marketplace routes validate and present persisted evidence; they do
+  not recompute trust, bypass execution controls, accept session secrets, or hide
+  agents unless the caller explicitly requests a filter.
 
 ## Why this wins the main BNB prize
 

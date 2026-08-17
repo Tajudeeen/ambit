@@ -126,3 +126,20 @@ verifiable evidence but do not count as successful execution claims.
 **Consequences:** Receipt verification is deterministic and replayable, provider
 and persistence failures fail closed, and M9 can add a database adapter without
 coupling marketplace code to the execution verifier.
+
+# ADR-0010: M9 separates HTTP validation from marketplace persistence
+
+**Status:** Accepted (M9)
+**Context:** The marketplace must expose search, profiles, hiring, and execution
+history without turning route handlers into a second trust engine or hiding
+weak-evidence agents. The baseline Prisma schema also models historical metadata,
+endpoint, trust-score, and policy rows as invalid one-to-one relations.
+**Decision:** Build the Hono API against an injected `MarketplaceRepository` and
+provide a Prisma implementation for production. Route handlers validate HTTP
+inputs and return structured errors; repository code owns deterministic queries,
+latest-record selection, and durable pending hire requests. Historical relations
+remain one-to-many. Hiring never accepts execution success or session secrets
+from clients.
+**Consequences:** API behavior is testable without a database, Prisma generation
+is unblocked, marketplace visibility remains opt-in filtered, and later UI or
+deployment work can replace transports without weakening the execution boundary.
