@@ -42,7 +42,7 @@ of BNB's agent economy — it does not replace Agent Studio.
 
 ```
 apps/
-  web/        Next.js marketplace UI (M10)
+  web/        Next.js evidence marketplace + pending hire flow (M10)
   api/        Hono marketplace API + Prisma repository (M9)
   indexer/    BSC ERC-8004 indexer worker (M1)
 packages/
@@ -97,3 +97,4 @@ docker compose up -d        # Postgres for M1+
 - [x] M7 Altana registered-session execution (official SDK boundary, exact approved calldata relay, bounded permissions, fail-closed validation)
 - [x] M8 Execution passport (exact transaction/receipt binding, canonical block checks, explicit confirmations, idempotent persistence)
 - [x] M9 Marketplace backend (search/profile/history routes, pending-only hires, deterministic ranking, injected Prisma repository)
+- [x] M10 Marketplace frontend (live URL-driven discovery, evidence profiles, same-origin pending-hire proxy, explicit empty/error states)
