@@ -100,6 +100,10 @@ MARKETPLACE WEB APP  (apps/web)               M10
   security-relevant numeric configuration accepts only explicit bounded safe
   integers. Unknown identity, proxy, or transport guarantees are never invented;
   ambiguous security state fails closed.
+- **R-DEPLOY:** Releases use immutable dependency resolution, committed database
+  migrations, explicit runtime configuration, and separate health/readiness
+  gates. Images contain no secrets, migration failure stops startup, and local
+  artifacts never imply that public infrastructure has been provisioned.
 
 ## Why this wins the main BNB prize
 
