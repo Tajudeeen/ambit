@@ -39,36 +39,45 @@ function opt(name: string, fallback: string): string {
   return process.env[name] ?? fallback;
 }
 
-function intOpt(name: string, fallback: number): number {
-  const v = process.env[name];
-  if (!v) return fallback;
-  const n = Number(v);
-  if (!Number.isFinite(n)) throw new Error(`Environment variable ${name} must be a number`);
-  return n;
+function intOpt(name: string, fallback: number, min: number, max: number): number {
+  const raw = process.env[name];
+  const value = raw === undefined ? fallback : Number(raw);
+  if (
+    (raw !== undefined && !/^\d+$/.test(raw)) ||
+    !Number.isSafeInteger(value) ||
+    value < min ||
+    value > max
+  ) {
+    throw new Error(`Environment variable ${name} must be an integer from ${min} to ${max}`);
+  }
+  return value;
 }
+
+export const MAX_INDEXER_BATCH_SIZE = 10_000;
 
 export function loadConfig(): Config {
   return {
     bsc: {
       rpcUrl: opt('BSC_RPC_URL', 'https://bsc-dataseed.binance.org'),
-      chainId: intOpt('BSC_CHAIN_ID', 56),
+      chainId: intOpt('BSC_CHAIN_ID', 56, 1, Number.MAX_SAFE_INTEGER),
     },
     bscTestnet: {
       rpcUrl: opt('BSC_TESTNET_RPC_URL', 'https://data-seed-prebsc-1-s1.binance.org:8545'),
-      chainId: intOpt('BSC_TESTNET_CHAIN_ID', 97),
+      chainId: intOpt('BSC_TESTNET_CHAIN_ID', 97, 1, Number.MAX_SAFE_INTEGER),
     },
     erc8004: {
       identityRegistry: opt('ERC8004_IDENTITY_REGISTRY_BSC', ''),
       reputationRegistry: opt('ERC8004_REPUTATION_REGISTRY_BSC', ''),
     },
     databaseUrl: req('DATABASE_URL'),
-    apiPort: intOpt('API_PORT', 8787),
+    apiPort: intOpt('API_PORT', 8787, 1, 65_535),
     webApiUrl: opt('NEXT_PUBLIC_API_URL', 'http://localhost:8787'),
     indexer: {
-      batchSize: intOpt('INDEXER_BATCH_SIZE', 200),
-      startBlock: process.env.INDEXER_START_BLOCK
-        ? intOpt('INDEXER_START_BLOCK', 0)
-        : undefined,
+      batchSize: intOpt('INDEXER_BATCH_SIZE', 200, 1, MAX_INDEXER_BATCH_SIZE),
+      startBlock:
+        process.env.INDEXER_START_BLOCK === undefined
+          ? undefined
+          : intOpt('INDEXER_START_BLOCK', 0, 0, Number.MAX_SAFE_INTEGER),
     },
   };
 }
