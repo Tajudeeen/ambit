@@ -31,4 +31,31 @@ describe('config/loadConfig', () => {
     const c = loadConfig();
     expect(c.indexer.startBlock).toBe(12345);
   });
+
+  it.each([
+    ['BSC_CHAIN_ID', '0'],
+    ['BSC_CHAIN_ID', '-1'],
+    ['BSC_CHAIN_ID', '1.5'],
+    ['BSC_CHAIN_ID', '9007199254740992'],
+    ['API_PORT', '0'],
+    ['API_PORT', '65536'],
+    ['API_PORT', '8787.5'],
+    ['INDEXER_BATCH_SIZE', '0'],
+    ['INDEXER_BATCH_SIZE', '10001'],
+    ['INDEXER_START_BLOCK', '-1'],
+    ['INDEXER_START_BLOCK', '123.5'],
+  ])('rejects unsafe %s value %s', (name, value) => {
+    process.env[name] = value;
+    expect(() => loadConfig()).toThrow(new RegExp(`Environment variable ${name}`));
+  });
+
+  it.each([
+    ['BSC_CHAIN_ID', ''],
+    ['API_PORT', '1e3'],
+    ['INDEXER_BATCH_SIZE', ' 200'],
+    ['INDEXER_START_BLOCK', ''],
+  ])('rejects malformed %s value %s', (name, value) => {
+    process.env[name] = value;
+    expect(() => loadConfig()).toThrow(new RegExp(`Environment variable ${name}`));
+  });
 });
