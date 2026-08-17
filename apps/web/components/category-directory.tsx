@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CATEGORY_DIRECTORY } from '@/lib/categories';
+import { CATEGORY_DIRECTORY, categoryHref } from '@/lib/categories';
 
 export function CategoryDirectory({ activeCategory }: { activeCategory?: string }) {
   return (
@@ -20,7 +20,7 @@ export function CategoryDirectory({ activeCategory }: { activeCategory?: string 
           return (
             <Link
               className={`category-card${active ? ' category-card-active' : ''}`}
-              href={`/?category=${category.id}#marketplace`}
+              href={categoryHref(category.id)}
               aria-current={active ? 'page' : undefined}
               key={category.id}
             >

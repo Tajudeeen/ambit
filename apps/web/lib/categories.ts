@@ -35,3 +35,7 @@ export const CATEGORY_DIRECTORY: readonly CategoryDefinition[] = [
     description: 'Explore declared vault, staking, farming, and liquidity-incentive capabilities.',
   },
 ];
+
+export function categoryHref(category: AgentCategory): string {
+  return `/?category=${category}#marketplace`;
+}

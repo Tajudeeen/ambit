@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from '../app/api/agents/[agentRegistry]/hire/route';
+import { CATEGORY_DIRECTORY, categoryHref } from '../lib/categories';
 import { formatAddress, formatLabel } from '../lib/format';
 import { getAgent, searchAgents } from '../lib/marketplace-api';
 import { hasFilters, nextPageHref, searchInput } from '../lib/search';
@@ -34,6 +35,18 @@ describe('M10 marketplace web contracts', () => {
     expect(nextPageHref(values, 'next_cursor')).toBe(
       '/?q=venus&category=health-factor&supportedExecution=true&minTrustScore=80&cursor=next_cursor',
     );
+  });
+
+  it('exposes every M11 category as an explicit marketplace filter', () => {
+    expect(CATEGORY_DIRECTORY.map((category) => category.id)).toEqual([
+      'monitoring',
+      'grid-trading',
+      'health-factor',
+      'yield',
+    ]);
+    expect(new Set(CATEGORY_DIRECTORY.map((category) => category.code)).size).toBe(4);
+    expect(CATEGORY_DIRECTORY.every((category) => category.description.length > 30)).toBe(true);
+    expect(categoryHref('health-factor')).toBe('/?category=health-factor#marketplace');
   });
 
   it('builds live API searches with explicit query parameters', async () => {
