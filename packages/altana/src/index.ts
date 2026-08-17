@@ -178,7 +178,7 @@ export class AltanaAdminAdapter {
     const session = isRegisteredSession(registeredSessionOrPublicKey)
       ? registeredSessionOrPublicKey.session
       : registeredSessionOrPublicKey;
-    if (!isAltanaSession(session) && !isHexBytes(session)) {
+    if (!isAltanaSession(session) && !isNonEmptyHex(session)) {
       throw new AltanaIntegrationError('invalid-session', 'session or public key is invalid');
     }
 
@@ -561,7 +561,7 @@ function isSigner(value: unknown): value is Signer {
     isRecord(value) &&
     (value.type === 'privateKey' || value.type === 'injected' || value.type === 'passkey') &&
     isNonZeroAddress(value.address) &&
-    isHexBytes(value.publicKey) &&
+    isNonEmptyHex(value.publicKey) &&
     typeof value.signDigest === 'function'
   );
 }
@@ -571,7 +571,7 @@ function isAltanaSession(value: unknown): value is Session {
     isRecord(value) &&
     isNonZeroAddress(value.walletAddress) &&
     isSigner(value.signer) &&
-    isHexBytes(value.publicKey) &&
+    isNonEmptyHex(value.publicKey) &&
     isPositiveSafeInteger(value.expiry) &&
     validatePermissions(value.permissions).length === 0
   );
@@ -618,12 +618,13 @@ function analyzeRelayResult(
   | { kind: 'failed' }
   | { kind: 'invalid'; detail: string } {
   if (!isRecord(result)) return { kind: 'invalid', detail: 'relay result must be an object' };
-  if (!isHexBytes(result.callsId)) return { kind: 'invalid', detail: 'relay callsId must be hex' };
+  if (!isNonEmptyHex(result.callsId))
+    return { kind: 'invalid', detail: 'relay callsId must be hex' };
   if (result.status === 'FAILED') return { kind: 'failed' };
   if (result.status !== 'PENDING' && result.status !== 'CONFIRMED') {
     return { kind: 'invalid', detail: 'relay status is invalid' };
   }
-  if (!isHexBytes(result.transactionHash)) {
+  if (!isNonEmptyHex(result.transactionHash)) {
     return { kind: 'invalid', detail: 'relay result must include a transactionHash' };
   }
   return {
@@ -676,6 +677,10 @@ function isNonZeroAddress(value: unknown): value is Address {
 }
 
 function isHexBytes(value: unknown): value is Hex {
+  return typeof value === 'string' && /^0x(?:[0-9a-fA-F]{2})*$/u.test(value);
+}
+
+function isNonEmptyHex(value: unknown): value is Hex {
   return typeof value === 'string' && /^0x(?:[0-9a-fA-F]{2})+$/u.test(value);
 }
 
