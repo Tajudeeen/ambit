@@ -44,9 +44,9 @@ of BNB's agent economy — it does not replace Agent Studio.
 apps/
   web/        Next.js evidence marketplace + pending hire flow (M10)
   api/        Hono marketplace API + Prisma repository (M9)
-  indexer/    BSC ERC-8004 indexer worker (M1)
+  indexer/    BSC ERC-8004 indexer + category evidence worker (M1/M11)
 packages/
-  core/       canonical agent model + methodology versioning
+  core/       canonical agent model + category/methodology versioning
   config/     env config loader
   erc8004/    ERC-8004 ABIs (from spec) + registration-file types
   activity/   registered-wallet activity evidence (M4a)
@@ -98,3 +98,4 @@ docker compose up -d        # Postgres for M1+
 - [x] M8 Execution passport (exact transaction/receipt binding, canonical block checks, explicit confirmations, idempotent persistence)
 - [x] M9 Marketplace backend (search/profile/history routes, pending-only hires, deterministic ranking, injected Prisma repository)
 - [x] M10 Marketplace frontend (live URL-driven discovery, evidence profiles, same-origin pending-hire proxy, explicit empty/error states)
+- [x] M11 Four agent categories (versioned deterministic metadata classifier, ambiguity evidence, explicit marketplace category entry points)
