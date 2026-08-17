@@ -93,3 +93,4 @@ docker compose up -d        # Postgres for M1+
 - [x] M4b Merkle score attestation contract (append-only roots, deterministic proofs, compiler-verified ABI)
 - [x] M5 Deterministic execution policy engine (fail-closed validation, identity/call/value/token/slippage limits, explicit usage state)
 - [x] M6 Supported transaction simulation (registered deterministic decoders, M5 short-circuit, explicit-block evidence, fail-closed provider/revert handling)
+- [x] M7 Altana registered-session execution (official SDK boundary, exact approved calldata relay, bounded permissions, fail-closed validation)
