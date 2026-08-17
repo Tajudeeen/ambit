@@ -178,6 +178,65 @@ describe('supported transaction simulation (M6)', () => {
     expect(result.rejectionReasons).toEqual(['invalid-decoded-intent']);
   });
 
+  it('uses decoder-derived slippage when request metadata is absent', async () => {
+    const swapDecoder: SupportedCallDecoder = {
+      ...decoder(),
+      id: 'decoded-slippage',
+      decode: () => ({
+        tokenTransfers: [{ token: TOKEN, amount: 20n }],
+        slippageBps: 25,
+      }),
+    };
+    const result = await evaluateSimulatedExecution(
+      baseInput({
+        decoders: [swapDecoder],
+        policy: basePolicy({
+          calls: [
+            {
+              target: TOKEN,
+              selectors: ['0xa9059cbb'],
+              requireSlippage: true,
+              maxSlippageBps: 30,
+            },
+          ],
+        }),
+      }),
+    );
+
+    expect(result.approved).toBe(true);
+    expect(result.intent?.slippageBps).toBe(25);
+  });
+
+  it('rejects conflicting request and decoder slippage', async () => {
+    const swapDecoder: SupportedCallDecoder = {
+      ...decoder(),
+      id: 'conflicting-slippage',
+      decode: () => ({
+        tokenTransfers: [{ token: TOKEN, amount: 20n }],
+        slippageBps: 25,
+      }),
+    };
+    const result = await evaluateSimulatedExecution(
+      baseInput({ decoders: [swapDecoder], request: baseRequest({ slippageBps: 26 }) }),
+    );
+
+    expect(result.rejectionReasons).toEqual(['invalid-decoded-intent']);
+  });
+
+  it('rejects malformed decoder-derived slippage', async () => {
+    const swapDecoder: SupportedCallDecoder = {
+      ...decoder(),
+      id: 'invalid-slippage',
+      decode: () => ({
+        tokenTransfers: [{ token: TOKEN, amount: 20n }],
+        slippageBps: 10_001,
+      }),
+    };
+    const result = await evaluateSimulatedExecution(baseInput({ decoders: [swapDecoder] }));
+
+    expect(result.rejectionReasons).toEqual(['invalid-decoded-intent']);
+  });
+
   it('does not simulate when M5 rejects the normalized intent', async () => {
     const adapter = simulator();
     const result = await evaluateSimulatedExecution(

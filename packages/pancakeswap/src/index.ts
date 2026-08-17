@@ -2,10 +2,8 @@ import type { RawExecutionRequest, SupportedCallDecoder } from '@ambit/execution
 import { ChainId } from '@pancakeswap/chains';
 import { Percent, TradeType } from '@pancakeswap/sdk';
 import type { SmartRouterTrade } from '@pancakeswap/smart-router';
-import {
-  getUniversalRouterAddress,
-  PancakeSwapUniversalRouter,
-} from '@pancakeswap/universal-router-sdk';
+import type * as UniversalRouterSdk from '@pancakeswap/universal-router-sdk';
+import { createRequire } from 'node:module';
 import {
   decodeFunctionData,
   hexToBigInt,
@@ -90,6 +88,10 @@ const executeWithDeadlineAbi = parseAbi([
   'function execute(bytes commands, bytes[] inputs, uint256 deadline) payable',
 ]);
 const executeWithDeadlineSelector = toFunctionSelector('execute(bytes,bytes[],uint256)');
+const nodeRequire = createRequire(import.meta.url);
+const { getUniversalRouterAddress, PancakeSwapUniversalRouter } = nodeRequire(
+  '@pancakeswap/universal-router-sdk',
+) as typeof UniversalRouterSdk;
 
 export function getPancakeSwapUniversalRouter(chainId: number): Address {
   if (chainId === ChainId.BSC) return getUniversalRouterAddress(ChainId.BSC);
@@ -185,7 +187,10 @@ export function createPancakeSwapExactInputPlan(
   const quotedAt = requireUnixSeconds(input.quotedAt, 'quotedAt');
   const deadline = requireUnixSeconds(input.deadline, 'deadline');
   if (quotedAt > now) {
-    throw new PancakeSwapIntegrationError('invalid-quote', 'quote timestamp cannot be in the future');
+    throw new PancakeSwapIntegrationError(
+      'invalid-quote',
+      'quote timestamp cannot be in the future',
+    );
   }
   if (deadline <= now || deadline <= quotedAt) {
     throw new PancakeSwapIntegrationError('expired-quote', 'quote deadline has expired');
@@ -290,7 +295,10 @@ function validateRequestBinding(
     );
   }
   if (request.nativeValue !== 0n) {
-    throw new PancakeSwapIntegrationError('request-mismatch', 'execution native value must be zero');
+    throw new PancakeSwapIntegrationError(
+      'request-mismatch',
+      'execution native value must be zero',
+    );
   }
   if (!sameAddress(request.sender, plan.recipient)) {
     throw new PancakeSwapIntegrationError(
@@ -353,10 +361,7 @@ function decodeSingleExactInputCommand(calldata: Hex): DecodedSwapCommand {
   const amountOutMin = requireDecodedPositiveBigint(command.args, 'amountOutMin');
   const payerIsUser = requireDecodedBoolean(command.args, 'payerIsUser');
   const path = decodedArgument(command.args, 'path');
-  const tokens =
-    command.command === 'V2_SWAP_EXACT_IN'
-      ? decodeV2Path(path)
-      : decodeV3Path(path);
+  const tokens = command.command === 'V2_SWAP_EXACT_IN' ? decodeV2Path(path) : decodeV3Path(path);
 
   return {
     command: command.command,
@@ -398,10 +403,7 @@ function decodeV3Path(value: unknown): readonly Address[] {
   return tokens;
 }
 
-function decodedArgument(
-  args: readonly { name: string; value: unknown }[],
-  name: string,
-): unknown {
+function decodedArgument(args: readonly { name: string; value: unknown }[], name: string): unknown {
   const argument = args.find((candidate) => candidate.name === name);
   if (!argument) {
     throw new PancakeSwapIntegrationError(
@@ -467,10 +469,7 @@ function requirePositiveBigint(value: unknown, field: string): bigint {
 
 function requireNonNegativeBigint(value: unknown, field: string): bigint {
   if (typeof value !== 'bigint' || value < 0n) {
-    throw new PancakeSwapIntegrationError(
-      'invalid-quote',
-      `${field} must be non-negative bigint`,
-    );
+    throw new PancakeSwapIntegrationError('invalid-quote', `${field} must be non-negative bigint`);
   }
   return value;
 }

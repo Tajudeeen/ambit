@@ -19,6 +19,9 @@ Verified on 2026-08-17:
   `@pancakeswap/universal-router-sdk@1.5.2`.
 - The pinned Universal Router SDK resolves the deployed router for each
   supported chain; Ambit does not copy an address into application configuration.
+- The package's published ESM entry imports extensionless Lodash subpaths that
+  Node rejects. The server-side adapter loads the package's official CommonJS
+  export through `createRequire`; it does not patch or vendor SDK code.
 
 SDK output is not automatically trusted. Ambit decodes and validates the final
 calldata before it can become an M6 execution intent.
