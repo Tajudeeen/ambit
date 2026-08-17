@@ -12,11 +12,13 @@ successful execution claims.
 
 Verified on 2026-08-17:
 
-- `@pancakeswap/smart-router@7.7.0` is the official route-quoting package.
-- `@pancakeswap/universal-router-sdk@1.5.3` is the official Universal Router
-  calldata package and resolves the deployed router for each supported chain.
-- M12 pins those versions and obtains BSC router addresses through the official
-  SDK instead of copying an address into application configuration.
+- `@pancakeswap/smart-router@7.7.0` is published but currently depends on the
+  unpublished `@pancakeswap/infinity-stable-sdk@1.0.2`.
+- M12 therefore pins the newest installable official pair:
+  `@pancakeswap/smart-router@7.6.1` and
+  `@pancakeswap/universal-router-sdk@1.5.2`.
+- The pinned Universal Router SDK resolves the deployed router for each
+  supported chain; Ambit does not copy an address into application configuration.
 
 SDK output is not automatically trusted. Ambit decodes and validates the final
 calldata before it can become an M6 execution intent.
