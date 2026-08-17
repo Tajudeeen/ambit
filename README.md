@@ -51,7 +51,8 @@ packages/
   erc8004/    ERC-8004 ABIs (from spec) + registration-file types
   activity/   registered-wallet activity evidence (M4a)
   db/         Prisma schema + client (brief §24 entities)
-  altana/     Altana adapter interface + test double (M7 real SDK)
+  altana/     official Altana registered-session authorization (M7)
+  passport/   receipt verification + immutable execution passports (M8)
   trust-engine/   deterministic scoring (M3)
   risk-engine/    deterministic risk modules (M5)
   execution/      policy + simulation pipeline (M5/M6)
@@ -94,3 +95,4 @@ docker compose up -d        # Postgres for M1+
 - [x] M5 Deterministic execution policy engine (fail-closed validation, identity/call/value/token/slippage limits, explicit usage state)
 - [x] M6 Supported transaction simulation (registered deterministic decoders, M5 short-circuit, explicit-block evidence, fail-closed provider/revert handling)
 - [x] M7 Altana registered-session execution (official SDK boundary, exact approved calldata relay, bounded permissions, fail-closed validation)
+- [x] M8 Execution passport (exact transaction/receipt binding, canonical block checks, explicit confirmations, idempotent persistence)
