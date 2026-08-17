@@ -12,36 +12,36 @@ datasource db {
 
 // Canonical agent row, keyed by agentRegistry (eip155:chainId:registry:agentId).
 model Agent {
-  id               String   @id
-  agentRegistry    String   @unique
-  agentId          String
-  chainId          Int
-  identityRegistry String
-  owner            String
-  agentURI         String
-  name             String
-  description      String
-  image            String?
-  category         String? // 'monitoring' | 'grid-trading' | 'health-factor' | 'yield' | null
-  capabilities     String[] // JSON-encoded array via app layer
+  id                 String    @id
+  agentRegistry      String    @unique
+  agentId            String
+  chainId            Int
+  identityRegistry   String
+  owner              String
+  agentURI           String
+  name               String
+  description        String
+  image              String?
+  category           String? // 'monitoring' | 'grid-trading' | 'health-factor' | 'yield' | null
+  capabilities       String[] // JSON-encoded array via app layer
   supportedProtocols String[]
-  verificationTier String   @default("unverified")
-  supportedExecution Boolean @default(false)
-  executionVerified Boolean @default(false)
-  verifiedActivity Boolean @default(false)
-  lastIndexedBlock Int?
-  lastIndexedAt    DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  verificationTier   String    @default("unverified")
+  supportedExecution Boolean   @default(false)
+  executionVerified  Boolean   @default(false)
+  verifiedActivity   Boolean   @default(false)
+  lastIndexedBlock   Int?
+  lastIndexedAt      DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  metadata     AgentMetadata?
-  endpoint     AgentEndpoint?
-  reputation   ReputationEvent[]
-  activity     ActivityEvent[]
-  payment      PaymentEvidence[]
-  trustScore   TrustScore?
-  policy       ExecutionPolicy?
-  executions   ExecutionRequest[]
+  metadata   AgentMetadata[]
+  endpoint   AgentEndpoint[]
+  reputation ReputationEvent[]
+  activity   ActivityEvent[]
+  payment    PaymentEvidence[]
+  trustScore TrustScore[]
+  policy     ExecutionPolicy[]
+  executions ExecutionRequest[]
 
   @@index([category])
   @@index([verificationTier])
@@ -49,24 +49,25 @@ model Agent {
 }
 
 model AgentMetadata {
-  id        String   @id @default(cuid())
-  agentId   String
-  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  data      String // JSON-encoded registration file
-  source    String
-  blockNumber Int?
-  txHash    String?
-  timestamp DateTime @default(now())
-}
-
-model AgentEndpoint {
   id          String   @id @default(cuid())
   agentId     String
   agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  data        String // JSON-encoded registration file
+  source      String
+  blockNumber Int?
+  txHash      String?
+  timestamp   DateTime @default(now())
+}
+
+model AgentEndpoint {
+  id          String    @id @default(cuid())
+  agentId     String
+  agent       Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
   url         String
-  status      String   @default("unknown") // unknown | up | down | degraded
+  status      String    @default("unknown") // unknown | up | down | degraded
   lastChecked DateTime?
   latencyMs   Int?
+
   @@unique([agentId, url])
 }
 
@@ -85,100 +86,117 @@ model ReputationEvent {
   blockNumber   Int
   txHash        String
   timestamp     DateTime @default(now())
+
   @@index([agentId])
   @@index([clientAddress])
 }
 
 model ActivityEvent {
-  id        String   @id @default(cuid())
-  agentId   String
-  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  kind      String
+  id          String   @id @default(cuid())
+  agentId     String
+  agent       Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  kind        String
   blockNumber Int
-  txHash    String
-  timestamp DateTime @default(now())
+  txHash      String
+  timestamp   DateTime @default(now())
+
   @@index([agentId])
 }
 
 model PaymentEvidence {
-  id        String   @id @default(cuid())
-  agentId   String
-  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  source    String   @default("x402")
+  id           String   @id @default(cuid())
+  agentId      String
+  agent        Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  source       String   @default("x402")
   linkedTxHash String?
-  chainId   Int?
-  reliable  Boolean  @default(false)
-  observedAt DateTime @default(now())
+  chainId      Int?
+  reliable     Boolean  @default(false)
+  observedAt   DateTime @default(now())
+
   @@index([agentId])
 }
 
 model TrustScore {
-  id                  String   @id @default(cuid())
-  agentId             String
-  agent               Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  score               Int
-  confidence          String   // none | low | medium | high
-  methodologyVersion  String
-  evidence            String   // JSON-encoded Evidence[]
-  computedAt          DateTime @default(now())
+  id                 String   @id @default(cuid())
+  agentId            String
+  agent              Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  score              Int
+  confidence         String // none | low | medium | high
+  methodologyVersion String
+  evidence           String // JSON-encoded Evidence[]
+  computedAt         DateTime @default(now())
+
   @@unique([agentId, methodologyVersion, computedAt])
   @@index([agentId])
 }
 
 model ExecutionPolicy {
-  id            String   @id @default(cuid())
-  agentId       String
-  agent         Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  maxTxValue    String?  // decimal string
-  dailySpend    String?
-  allowedTokens String[]
+  id               String    @id @default(cuid())
+  agentId          String
+  agent            Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  maxTxValue       String? // decimal string
+  dailySpend       String?
+  allowedTokens    String[]
   allowedProtocols String[]
-  allowedTargets String[]
-  expiry        DateTime?
-  maxSlippageBps Int?
-  minHealthFactor String?
-  createdAt     DateTime @default(now())
+  allowedTargets   String[]
+  expiry           DateTime?
+  maxSlippageBps   Int?
+  minHealthFactor  String?
+  createdAt        DateTime  @default(now())
 }
 
 model ExecutionRequest {
-  id            String   @id @default(cuid())
-  agentId       String
-  agent         Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  sessionId     String?
-  destination   String
-  protocol      String?
-  requestedValue String
-  policyResult  String   // approved | rejected
-  riskResult    String?
-  simulationResult String?
-  approvalRejection String // approved | rejected
-  rejectionReason String?
-  txHash        String?
-  blockNumber   Int?
-  executionStatus String?
-  gas           String?
-  outcome       String?
-  timestamp     DateTime @default(now())
+  id                String    @id @default(cuid())
+  agentId           String
+  agent             Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  clientRequestId   String?   @unique
+  requester         String?
+  sessionId         String?
+  destination       String
+  calldata          String?
+  protocol          String?
+  requestedValue    String
+  requestStatus     String    @default("pending-authorization")
+  policyResult      String    @default("pending") // pending | approved | rejected
+  riskResult        String?
+  simulationResult  String?
+  approvalRejection String    @default("pending") // pending | approved | rejected
+  rejectionReason   String?
+  callsId           String?
+  txHash            String?
+  blockNumber       Int?
+  blockHash         String?
+  executionStatus   String?
+  gas               String?
+  outcome           String?
+  passportId        String?   @unique
+  verifiedAt        DateTime?
+  timestamp         DateTime  @default(now())
+
   @@index([agentId])
+  @@index([agentId, timestamp])
   @@index([timestamp])
+  @@index([txHash])
 }
 
 model Attestation {
-  id          String   @id @default(cuid())
-  epoch       Int
-  merkleRoot  String
-  agentCount  Int
+  id                 String   @id @default(cuid())
+  epoch              Int
+  merkleRoot         String
+  agentCount         Int
   methodologyVersion String
-  timestamp   DateTime
-  txHash      String?
+  timestamp          DateTime
+  txHash             String?
+
   @@unique([epoch])
 }
 
 model IndexerCheckpoint {
-  id          String   @id @default(cuid())
-  chainId     Int
-  contract    String
-  lastBlock   Int
-  updatedAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  chainId   Int
+  contract  String
+  lastBlock Int
+  updatedAt DateTime @default(now())
+
   @@unique([chainId, contract])
 }
