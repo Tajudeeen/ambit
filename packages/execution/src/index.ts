@@ -111,6 +111,7 @@ export interface RawExecutionRequest {
 
 export interface DecodedCallEffects {
   tokenTransfers: readonly TokenTransferIntent[];
+  slippageBps?: number;
 }
 
 export interface SupportedCallDecoder {
@@ -463,6 +464,26 @@ export async function evaluateSimulatedExecution(
     );
     return pipelineDecision(checks, { decoderId: decoder.id, request });
   }
+  const decodedSlippage = decodedSlippageBps(decoded);
+  if (decodedSlippage === null) {
+    checks.push(
+      pipelineFail('invalid-decoded-intent', `decoder ${decoder.id} returned invalid slippage`),
+    );
+    return pipelineDecision(checks, { decoderId: decoder.id, request });
+  }
+  if (
+    decodedSlippage !== undefined &&
+    request.slippageBps !== undefined &&
+    decodedSlippage !== request.slippageBps
+  ) {
+    checks.push(
+      pipelineFail(
+        'invalid-decoded-intent',
+        `decoder ${decoder.id} slippage does not match request metadata`,
+      ),
+    );
+    return pipelineDecision(checks, { decoderId: decoder.id, request });
+  }
 
   const intent: ExecutionIntent = {
     chainId: request.chainId,
@@ -473,7 +494,7 @@ export async function evaluateSimulatedExecution(
     nativeValue: request.nativeValue,
     tokenTransfers,
     protocol: request.protocol,
-    slippageBps: request.slippageBps,
+    slippageBps: decodedSlippage ?? request.slippageBps,
     requestedAt: request.requestedAt,
   };
   const intentValidation = validateExecutionIntent(intent);
@@ -664,6 +685,11 @@ function validateSupportedCallDecoders(decoders: readonly unknown[]): PolicyVali
 function decodedTokenTransfers(decoded: unknown): readonly TokenTransferIntent[] | undefined {
   if (!isRecord(decoded) || !Array.isArray(decoded.tokenTransfers)) return undefined;
   return decoded.tokenTransfers as readonly TokenTransferIntent[];
+}
+
+function decodedSlippageBps(decoded: unknown): number | null | undefined {
+  if (!isRecord(decoded) || decoded.slippageBps === undefined) return undefined;
+  return isBps(decoded.slippageBps) ? decoded.slippageBps : null;
 }
 
 function validateSimulationEvidence(
