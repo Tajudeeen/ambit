@@ -44,13 +44,20 @@ describe('TermiX integration (M13)', () => {
       createTermixAdvantageReport({ agentId: '42', generatedAt: 1, cases: cases.slice(0, 2) }),
     ).toThrowError(expect.objectContaining({ code: 'invalid-report' }));
     expect(() =>
-      createTermixAdvantageReport({ agentId: '42', generatedAt: 1, cases: [cases[0], cases[0], cases[2]] }),
+      createTermixAdvantageReport({
+        agentId: '42',
+        generatedAt: 1,
+        cases: [cases[0], cases[0], cases[2]],
+      }),
     ).toThrowError(expect.objectContaining({ code: 'invalid-report' }));
     expect(() =>
       createTermixAdvantageReport({
         agentId: '42',
         generatedAt: 1,
-        cases: cases.map((item) => ({ ...item, withAgent: { ...item.withAgent, evidenceRefs: [] } })),
+        cases: cases.map((item) => ({
+          ...item,
+          withAgent: { ...item.withAgent, evidenceRefs: [] },
+        })),
       }),
     ).toThrowError(expect.objectContaining({ code: 'invalid-report' }));
   });
@@ -58,11 +65,19 @@ describe('TermiX integration (M13)', () => {
   it('reads and validates documented public config and stats shapes', async () => {
     const fetchMock = vi.fn(async (url: string) => {
       const body = url.endsWith('/config')
-        ? { data: { chainId: 97, contracts: { jobManager: '0x1111111111111111111111111111111111111111' } } }
+        ? {
+            data: {
+              chainId: 97,
+              contracts: { jobManager: '0x1111111111111111111111111111111111111111' },
+            },
+          }
         : { data: { totalJobs: 3, completedJobs: 2, nested: { activeAgents: 1 } } };
       return new Response(JSON.stringify(body), { status: 200 });
     });
-    const client = new TermixPublicClient({ baseUrl: TERMIX_PUBLIC_API_URL, fetch: fetchMock as typeof fetch });
+    const client = new TermixPublicClient({
+      baseUrl: TERMIX_PUBLIC_API_URL,
+      fetch: fetchMock as typeof fetch,
+    });
 
     await expect(client.getConfig(1_800_000_000)).resolves.toMatchObject({ chainId: 97 });
     await expect(client.getStats(1_800_000_000)).resolves.toMatchObject({
@@ -80,8 +95,9 @@ describe('TermiX integration (M13)', () => {
     await expect(unavailable.getConfig(1)).rejects.toBeInstanceOf(TermixIntegrationError);
 
     const bad = new TermixPublicClient({
-      fetch: vi.fn(async () =>
-        new Response(JSON.stringify({ data: { chainId: 56, contracts: {} } }), { status: 200 }),
+      fetch: vi.fn(
+        async () =>
+          new Response(JSON.stringify({ data: { chainId: 56, contracts: {} } }), { status: 200 }),
       ) as typeof fetch,
     });
     await expect(bad.getConfig(1)).rejects.toMatchObject({ code: 'invalid-response' });

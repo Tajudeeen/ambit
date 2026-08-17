@@ -55,11 +55,7 @@ export interface TermixProtocolStats {
 }
 
 export type TermixErrorCode =
-  | 'invalid-report'
-  | 'invalid-config'
-  | 'network-unavailable'
-  | 'http-error'
-  | 'invalid-response';
+  'invalid-report' | 'invalid-config' | 'network-unavailable' | 'http-error' | 'invalid-response';
 
 export class TermixIntegrationError extends Error {
   constructor(
@@ -106,9 +102,7 @@ export function createTermixAdvantageReport(input: unknown): TermixAdvantageRepo
       completedWithAgent,
       completionDelta: completedWithAgent - completedWithoutAgent,
       averageQualityDeltaBps: average(comparisons.map((item) => item.qualityDeltaBps)),
-      averageLatencyImprovementBps: average(
-        comparisons.map((item) => item.latencyImprovementBps),
-      ),
+      averageLatencyImprovementBps: average(comparisons.map((item) => item.latencyImprovementBps)),
       averageCostImprovementBps: average(comparisons.map((item) => item.costImprovementBps)),
     },
   });
@@ -150,7 +144,10 @@ export class TermixPublicClient {
     const metrics: Record<string, number> = {};
     collectMetrics(root, '', metrics);
     if (Object.keys(metrics).length === 0) {
-      throw new TermixIntegrationError('invalid-response', 'TermiX stats contain no numeric metrics');
+      throw new TermixIntegrationError(
+        'invalid-response',
+        'TermiX stats contain no numeric metrics',
+      );
     }
     return { metrics, observedAt };
   }
@@ -158,12 +155,17 @@ export class TermixPublicClient {
   async #get(path: 'config' | 'stats'): Promise<unknown> {
     let response: Response;
     try {
-      response = await this.#fetch(`${this.#baseUrl}/${path}`, { headers: { accept: 'application/json' } });
+      response = await this.#fetch(`${this.#baseUrl}/${path}`, {
+        headers: { accept: 'application/json' },
+      });
     } catch {
       throw new TermixIntegrationError('network-unavailable', 'TermiX public API is unavailable');
     }
     if (!response.ok) {
-      throw new TermixIntegrationError('http-error', `TermiX public API returned ${response.status}`);
+      throw new TermixIntegrationError(
+        'http-error',
+        `TermiX public API returned ${response.status}`,
+      );
     }
     try {
       return await response.json();
@@ -192,7 +194,11 @@ function validateAttempt(value: unknown): TermixTaskAttempt {
   if (!isMetric(value.durationMs) || !isMetric(value.costMicrousd) || !isBps(value.qualityBps)) {
     throw new TermixIntegrationError('invalid-report', 'task metrics are invalid');
   }
-  if (!Array.isArray(value.evidenceRefs) || value.evidenceRefs.length === 0 || !value.evidenceRefs.every(isNonEmptyString)) {
+  if (
+    !Array.isArray(value.evidenceRefs) ||
+    value.evidenceRefs.length === 0 ||
+    !value.evidenceRefs.every(isNonEmptyString)
+  ) {
     throw new TermixIntegrationError('invalid-report', 'task evidence references are required');
   }
   return value as unknown as TermixTaskAttempt;
@@ -221,15 +227,20 @@ function average(values: readonly number[]): number {
 function validateBaseUrl(value: string): string {
   try {
     const url = new URL(value);
-    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) throw new Error();
+    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash)
+      throw new Error();
     return url.toString().replace(/\/$/u, '');
   } catch {
-    throw new TermixIntegrationError('invalid-config', 'TermiX base URL must be credential-free HTTPS');
+    throw new TermixIntegrationError(
+      'invalid-config',
+      'TermiX base URL must be credential-free HTTPS',
+    );
   }
 }
 
 function unwrapData(value: unknown): Record<string, unknown> {
-  if (!isRecord(value)) throw new TermixIntegrationError('invalid-response', 'response must be an object');
+  if (!isRecord(value))
+    throw new TermixIntegrationError('invalid-response', 'response must be an object');
   return isRecord(value.data) ? value.data : value;
 }
 
@@ -252,11 +263,15 @@ function isUnixSeconds(value: unknown): value is number {
   return Number.isSafeInteger(value) && (value as number) >= 0;
 }
 function isMetric(value: unknown): value is number {
-  return Number.isSafeInteger(value) && (value as number) >= 0 && (value as number) <= 900_000_000_000;
+  return (
+    Number.isSafeInteger(value) && (value as number) >= 0 && (value as number) <= 900_000_000_000
+  );
 }
 function isBps(value: unknown): value is number {
   return Number.isSafeInteger(value) && (value as number) >= 0 && (value as number) <= 10_000;
 }
 function isAddress(value: unknown): value is `0x${string}` {
-  return typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/u.test(value) && !/^0x0{40}$/u.test(value);
+  return (
+    typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/u.test(value) && !/^0x0{40}$/u.test(value)
+  );
 }
