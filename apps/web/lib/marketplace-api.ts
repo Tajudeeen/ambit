@@ -186,7 +186,11 @@ async function requestJson<T>(path: string): Promise<T> {
       cache: 'no-store',
     });
   } catch {
-    throw new MarketplaceApiError(503, 'repository-unavailable', 'Marketplace data is unavailable.');
+    throw new MarketplaceApiError(
+      503,
+      'repository-unavailable',
+      'Marketplace data is unavailable.',
+    );
   }
 
   const body = await parseJson(response);
@@ -211,7 +215,8 @@ function errorBody(value: unknown): { code: string; message: string; issues: rea
   }
   return {
     code: typeof value.error.code === 'string' ? value.error.code : 'upstream-error',
-    message: typeof value.error.message === 'string' ? value.error.message : 'Marketplace request failed.',
+    message:
+      typeof value.error.message === 'string' ? value.error.message : 'Marketplace request failed.',
     issues: Array.isArray(value.error.issues)
       ? value.error.issues.filter((issue): issue is string => typeof issue === 'string')
       : [],
