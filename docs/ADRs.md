@@ -75,3 +75,19 @@ means only that the request satisfies policy.
 **Consequences:** M5 can be tested as a pure security boundary. M6 must reject when
 it cannot produce the normalized intent fields M5 requires, and later stages must
 still pass simulation, risk, session authorization, and final approval.
+
+# ADR-0007: M6 uses registered decoders and block-pinned simulation
+
+**Status:** Accepted (M6)
+**Context:** M5 deliberately accepts normalized intents and cannot safely infer
+token effects from arbitrary calldata. Simulation also depends on external chain
+state and must not silently become an authorization or execution mechanism.
+**Decision:** M6 validates raw requests, resolves exactly one deterministic decoder
+registered for the chain/target/selector/protocol tuple, evaluates the resulting M5
+intent, and only then invokes an injected simulator at an explicit block number.
+Unsupported or ambiguous decoding, policy rejection, provider failure, malformed
+evidence, block mismatch, and reverts all fail closed.
+**Consequences:** Supported integrations can add audited decoders without making
+generic calldata guesses. Simulation evidence is reproducible and independently
+testable, while M7 authorization, signing, submission, and receipt verification
+remain separate mandatory stages.
