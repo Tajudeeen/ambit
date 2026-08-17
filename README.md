@@ -58,6 +58,7 @@ packages/
   execution/      policy + simulation pipeline (M5/M6)
   contracts/      Merkle attestation contract (M4b)
   pancakeswap/    quote-bound official PancakeSwap Universal Router adapter (M12)
+  termix/      deterministic advantage reports + read-only AACP discovery (M13)
   sdk/        shared client SDK
   ui/         shared UI components
   testing/    shared test fixtures/utilities
@@ -100,3 +101,4 @@ docker compose up -d        # Postgres for M1+
 - [x] M10 Marketplace frontend (live URL-driven discovery, evidence profiles, same-origin pending-hire proxy, explicit empty/error states)
 - [x] M11 Four agent categories (versioned deterministic metadata classifier, ambiguity evidence, explicit marketplace category entry points)
 - [x] M12 PancakeSwap integration (pinned official SDKs, quote-bound exact-input V2/V3 calldata, decoded spend/slippage, fail-closed simulation path)
+- [x] M13 TermiX integration (three-task paired advantage reports, evidence references, deterministic integer metrics, read-only public config/stats client)
