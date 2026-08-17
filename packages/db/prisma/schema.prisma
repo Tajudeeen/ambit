@@ -12,40 +12,47 @@ datasource db {
 
 // Canonical agent row, keyed by agentRegistry (eip155:chainId:registry:agentId).
 model Agent {
-  id                 String    @id
-  agentRegistry      String    @unique
-  agentId            String
-  chainId            Int
-  identityRegistry   String
-  owner              String
-  agentURI           String
-  name               String
-  description        String
-  image              String?
-  category           String? // 'monitoring' | 'grid-trading' | 'health-factor' | 'yield' | null
-  capabilities       String[] // JSON-encoded array via app layer
-  supportedProtocols String[]
-  verificationTier   String    @default("unverified")
-  supportedExecution Boolean   @default(false)
-  executionVerified  Boolean   @default(false)
-  verifiedActivity   Boolean   @default(false)
-  lastIndexedBlock   Int?
-  lastIndexedAt      DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id                      String    @id
+  agentRegistry           String    @unique
+  agentId                 String
+  chainId                 Int
+  identityRegistry        String
+  owner                   String
+  agentURI                String
+  name                    String
+  description             String
+  image                   String?
+  category                String? // 'monitoring' | 'grid-trading' | 'health-factor' | 'yield' | null
+  capabilities            String[] // JSON-encoded array via app layer
+  supportedProtocols      String[]
+  verificationTier        String    @default("unverified")
+  supportedExecution      Boolean   @default(false)
+  executionVerified       Boolean   @default(false)
+  verifiedActivity        Boolean   @default(false)
+  trustScoreValue         Int?
+  trustConfidence         String    @default("none")
+  trustConfidenceRank     Int       @default(0)
+  trustMethodologyVersion String?
+  trustComputedAt         DateTime?
+  lastIndexedBlock        Int?
+  lastIndexedAt           DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
-  metadata   AgentMetadata[]
-  endpoint   AgentEndpoint[]
-  reputation ReputationEvent[]
-  activity   ActivityEvent[]
-  payment    PaymentEvidence[]
-  trustScore TrustScore[]
-  policy     ExecutionPolicy[]
-  executions ExecutionRequest[]
+  metadata    AgentMetadata[]
+  endpoint    AgentEndpoint[]
+  reputation  ReputationEvent[]
+  activity    ActivityEvent[]
+  payment     PaymentEvidence[]
+  trustScores TrustScore[]
+  policy      ExecutionPolicy[]
+  executions  ExecutionRequest[]
 
   @@index([category])
   @@index([verificationTier])
   @@index([chainId])
+  @@index([trustScoreValue, trustConfidenceRank])
+  @@index([executionVerified])
 }
 
 model AgentMetadata {

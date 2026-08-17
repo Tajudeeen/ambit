@@ -1,18 +1,109 @@
+import { prisma } from '@ambit/db';
 import { Hono, type Context } from 'hono';
+import {
+  MarketplaceConflictError,
+  MarketplaceNotFoundError,
+  MarketplaceUnavailableError,
+  RequestValidationError,
+  isAgentRegistry,
+  parseAgentSearchQuery,
+  parseExecutionListQuery,
+  parseHireAgentInput,
+  type MarketplaceRepository,
+} from './marketplace.js';
+import { createPrismaMarketplaceRepository } from './prisma-repository.js';
 
-/**
- * M0 baseline API surface.
- *
- * Real marketplace endpoints (search, profiles, hiring, execution) land in M9.
- * The health/readiness endpoints exist from day one for production observability
- * (see brief §23). They deliberately require no DB/RPC so they cannot fail
- * closed for the wrong reason.
- */
-export const health = (c: Context) => c.json({ status: 'ok', service: 'ambit-api' });
+export const health = (context: Context) => context.json({ status: 'ok', service: 'ambit-api' });
 
-export function createApp(): Hono {
+export interface CreateAppOptions {
+  repository?: MarketplaceRepository;
+}
+
+export function createApp(options: CreateAppOptions = {}): Hono {
+  const repository = options.repository ?? createPrismaMarketplaceRepository(prisma);
   const app = new Hono();
+
+  app.onError((error, context) => errorResponse(error, context));
   app.get('/health', health);
-  app.get('/ready', (c) => c.json({ status: 'ok', service: 'ambit-api' }));
+  app.get('/ready', async (context) => {
+    try {
+      await repository.ready();
+      return context.json({ status: 'ok', service: 'ambit-api' });
+    } catch {
+      return context.json(
+        {
+          status: 'unavailable',
+          service: 'ambit-api',
+          error: {
+            code: 'repository-unavailable',
+            message: 'marketplace repository is unavailable',
+          },
+        },
+        503,
+      );
+    }
+  });
+
+  app.get('/agents', async (context) => {
+    const query = parseAgentSearchQuery(context.req.query());
+    return context.json(await repository.listAgents(query));
+  });
+
+  app.get('/agents/:agentRegistry/executions', async (context) => {
+    const agentRegistry = requireAgentRegistry(context.req.param('agentRegistry'));
+    const query = parseExecutionListQuery(context.req.query());
+    return context.json(await repository.listExecutions(agentRegistry, query));
+  });
+
+  app.post('/agents/:agentRegistry/hire', async (context) => {
+    const agentRegistry = requireAgentRegistry(context.req.param('agentRegistry'));
+    let body: unknown;
+    try {
+      body = await context.req.json();
+    } catch {
+      throw new RequestValidationError(['request body must be valid JSON']);
+    }
+    const input = parseHireAgentInput(body);
+    const request = await repository.createHire(agentRegistry, input);
+    return context.json({ request }, 202);
+  });
+
+  app.get('/agents/:agentRegistry', async (context) => {
+    const agentRegistry = requireAgentRegistry(context.req.param('agentRegistry'));
+    const agent = await repository.getAgent(agentRegistry);
+    if (!agent) throw new MarketplaceNotFoundError('agent not found');
+    return context.json({ agent });
+  });
+
   return app;
 }
+
+function requireAgentRegistry(value: string): string {
+  if (!isAgentRegistry(value)) throw new RequestValidationError(['agentRegistry is invalid']);
+  return value;
+}
+
+function errorResponse(error: Error, context: Context): Response {
+  if (error instanceof RequestValidationError) {
+    return context.json(
+      { error: { code: 'invalid-request', message: error.message, issues: error.issues } },
+      400,
+    );
+  }
+  if (error instanceof MarketplaceNotFoundError) {
+    return context.json({ error: { code: 'not-found', message: error.message } }, 404);
+  }
+  if (error instanceof MarketplaceConflictError) {
+    return context.json({ error: { code: 'conflict', message: error.message } }, 409);
+  }
+  if (error instanceof MarketplaceUnavailableError) {
+    return context.json({ error: { code: 'repository-unavailable', message: error.message } }, 503);
+  }
+  return context.json(
+    { error: { code: 'internal-error', message: 'unexpected marketplace API failure' } },
+    500,
+  );
+}
+
+export * from './marketplace.js';
+export * from './prisma-repository.js';

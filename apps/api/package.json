@@ -11,8 +11,12 @@
     "dev": "tsx watch src/server.ts"
   },
   "dependencies": {
+    "@ambit/core": "workspace:*",
     "@ambit/config": "workspace:*",
-    "hono": "^4.6.0"
+    "@ambit/db": "workspace:*",
+    "@hono/node-server": "2.0.12",
+    "hono": "^4.6.0",
+    "viem": "^2.55.16"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
