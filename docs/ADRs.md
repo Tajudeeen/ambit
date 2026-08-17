@@ -109,3 +109,20 @@ while Ambit's deterministic policy and simulation remain mandatory upstream
 checks. Relay submission with a transaction hash is not a success claim; M8 must
 verify the receipt and persist execution evidence. GPL license obligations for
 the pinned Altana dependency must be preserved by deployments and distributions.
+
+# ADR-0009: M8 creates immutable execution passports from verified receipts
+
+**Status:** Accepted (M8)
+**Context:** An Altana relay hash proves only that a submission can be tracked.
+Ambit must not claim that an agent executed successfully until the transaction,
+receipt, and canonical block are independently checked against the exact M6
+request and the M7 submission.
+**Decision:** Add a dedicated `@ambit/passport` boundary that accepts approved
+M6 decisions and M7 relay submissions, reads transaction/receipt/block data from
+an injected chain client, requires explicit confirmations, and persists a
+deterministic passport through an idempotent store. The passport records success
+or revert outcome and excludes Altana session secrets. Reverted receipts are
+verifiable evidence but do not count as successful execution claims.
+**Consequences:** Receipt verification is deterministic and replayable, provider
+and persistence failures fail closed, and M9 can add a database adapter without
+coupling marketplace code to the execution verifier.
