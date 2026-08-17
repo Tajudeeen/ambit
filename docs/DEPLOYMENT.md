@@ -75,6 +75,18 @@ automatic trust boundary.
 6. Run the indexer as an explicit job and inspect its exit status.
 7. Route traffic only after health and readiness checks pass.
 
+For the repository Compose topology, copy `deploy/.env.example` to an ignored
+environment file, replace every blank or placeholder value, and run:
+
+```bash
+docker compose --env-file deploy/.env -f docker-compose.deploy.yml build
+docker compose --env-file deploy/.env -f docker-compose.deploy.yml up -d postgres migrate api web
+docker compose --env-file deploy/.env -f docker-compose.deploy.yml --profile indexer run --rm indexer
+```
+
+The checked-in example is not a credential source. `POSTGRES_PASSWORD`,
+`DATABASE_URL`, and `BSC_RPC_URL` must be supplied deliberately and consistently.
+
 Rollback uses a previously built image and a migration-compatible database.
 M15 does not automate destructive migration rollback.
 

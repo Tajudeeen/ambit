@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
 
 jobs:
@@ -24,3 +24,18 @@ jobs:
         run: pnpm -r lint
       - name: Test
         run: pnpm -r test
+
+  containers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build API image
+        run: docker build --target api --tag ambit-api:ci .
+      - name: Build indexer image
+        run: docker build --target indexer --tag ambit-indexer:ci .
+      - name: Build web image
+        run: >-
+          docker build --target web
+          --build-arg NEXT_PUBLIC_API_URL=http://api.example
+          --tag ambit-web:ci .
