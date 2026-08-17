@@ -31,6 +31,10 @@ PANCAKESWAP ADAPTER  (packages/pancakeswap)   M12
   official quote/call SDK -> quote-bound calldata validation -> M6 decoder
         |
         v
+TERMIX EVIDENCE ADAPTER  (packages/termix)    M13
+  public AACP config/stats -> paired task evidence -> deterministic advantage report
+        |
+        v
 EXECUTION PASSPORT  (packages/passport) M8
   receipt + canonical block verification -> idempotent passport persistence
         |
@@ -87,6 +91,10 @@ MARKETPLACE WEB APP  (apps/web)               M10
   exact-input calldata, token path, recipient, deadline, and minimum output match
   explicit quote evidence. Decoded effects drive policy; caller-provided swap
   labels or slippage never weaken the execution boundary.
+- **R-TERMIX:** TermiX report values are derived from at least three explicit
+  with/without task pairs using versioned integer arithmetic and evidence
+  references. Read-only AACP discovery never implies job funding, delivery,
+  evaluation, settlement, trust, or execution authorization.
 
 ## Why this wins the main BNB prize
 

@@ -196,3 +196,22 @@ fail closed and never reach simulation or Altana.
 custody or trusting opaque router plans. The initial surface is intentionally
 narrow; native assets, exact-output trades, split routes, stable/Infinity pools,
 Permit2 composition, and fee commands require future audited decoders.
+
+# ADR-0014: M13 separates TermiX discovery from advantage-report evidence
+
+**Status:** Accepted (M13)
+**Context:** TermiX officially documents AACP REST and contract workflows, while
+the partner-track requirement calls for an Agent Advantage Report with at least
+three with/without tasks. No verified report-submission API is documented. Job
+funding and settlement also require wallet roles and must not be inferred from a
+public API response or locally generated report.
+**Decision:** Add `@ambit/termix` with a read-only client for the documented public
+`config` and `stats` endpoints plus a versioned deterministic report generator.
+Reports require at least three unique paired task observations, preserve their
+evidence references, and use integer completion, quality, latency, and cost
+deltas. M13 does not create AACP jobs, sign transactions, submit reports, or claim
+settlement.
+**Consequences:** Ambit can demonstrate measurable agent advantage without fake
+TermiX activity or a new execution boundary. A future official submission or job
+adapter can consume the report only after its endpoint, authentication, contract,
+and settlement semantics are independently verified.
