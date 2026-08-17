@@ -110,6 +110,7 @@ describe('supported transaction simulation (M6)', () => {
 
     expect(result.approved).toBe(true);
     expect(result.rejectionReasons).toEqual([]);
+    expect(result.request).toEqual(baseRequest());
     expect(result.intent?.tokenTransfers).toEqual([{ token: TOKEN, amount: 20n }]);
     expect(result.policyDecision?.approved).toBe(true);
     expect(result.simulation).toEqual(successfulEvidence());
