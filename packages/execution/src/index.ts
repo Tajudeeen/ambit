@@ -96,6 +96,99 @@ export interface PolicyValidation {
   errors: readonly string[];
 }
 
+export interface RawExecutionRequest {
+  chainId: number;
+  agentId: string;
+  principal: Address;
+  sender: Address;
+  target: Address;
+  data: Hex;
+  nativeValue: bigint;
+  protocol?: string;
+  slippageBps?: number;
+  requestedAt: number;
+}
+
+export interface DecodedCallEffects {
+  tokenTransfers: readonly TokenTransferIntent[];
+}
+
+export interface SupportedCallDecoder {
+  id: string;
+  chainId: number;
+  target: Address;
+  selector: Hex;
+  protocol?: string;
+  decode(request: RawExecutionRequest): unknown;
+}
+
+export interface Erc20TransferDecoderConfig {
+  id?: string;
+  chainId: number;
+  token: Address;
+  protocol?: string;
+}
+
+export interface SimulationRequest {
+  chainId: number;
+  from: Address;
+  target: Address;
+  data: Hex;
+  value: bigint;
+  blockNumber: bigint;
+}
+
+export interface SimulationEvidence {
+  success: boolean;
+  blockNumber: bigint;
+  gasUsed: bigint;
+  returnData: Hex;
+  revertReason?: string;
+}
+
+export interface SimulationAdapter {
+  readonly name: string;
+  simulate(request: SimulationRequest): Promise<unknown>;
+}
+
+export type ExecutionPipelineCheckCode =
+  | 'invalid-request'
+  | 'invalid-context'
+  | 'unsupported-call'
+  | 'ambiguous-decoder'
+  | 'decode-failed'
+  | 'invalid-decoded-intent'
+  | 'policy-rejected'
+  | 'simulation-unavailable'
+  | 'invalid-simulation'
+  | 'simulation-reverted';
+
+export interface ExecutionPipelineCheck {
+  code: ExecutionPipelineCheckCode;
+  passed: boolean;
+  detail: string;
+}
+
+export interface ExecutionPipelineDecision {
+  approved: boolean;
+  checks: readonly ExecutionPipelineCheck[];
+  rejectionReasons: readonly ExecutionPipelineCheckCode[];
+  decoderId?: string;
+  intent?: ExecutionIntent;
+  policyDecision?: PolicyDecision;
+  simulation?: SimulationEvidence;
+}
+
+export interface EvaluateSimulatedExecutionInput {
+  request: unknown;
+  decoders: unknown;
+  policy: unknown;
+  usage: unknown;
+  now: unknown;
+  blockNumber: unknown;
+  simulator: unknown;
+}
+
 export function validateExecutionPolicy(policy: unknown): PolicyValidation {
   const errors: string[] = [];
   if (!isRecord(policy)) return { valid: false, errors: ['policy must be an object'] };
@@ -240,6 +333,210 @@ export function validatePolicyUsage(usage: unknown): PolicyValidation {
   return { valid: errors.length === 0, errors };
 }
 
+export function validateRawExecutionRequest(request: unknown): PolicyValidation {
+  const errors: string[] = [];
+  if (!isRecord(request)) return { valid: false, errors: ['request must be an object'] };
+
+  if (!isPositiveSafeInteger(request.chainId)) {
+    errors.push('chainId must be a positive safe integer');
+  }
+  if (!isDecimalId(request.agentId)) {
+    errors.push('agentId must be a non-negative decimal string');
+  }
+  if (!isNonZeroAddress(request.principal)) {
+    errors.push('principal must be a non-zero address');
+  }
+  if (!isNonZeroAddress(request.sender)) errors.push('sender must be a non-zero address');
+  if (!isNonZeroAddress(request.target)) errors.push('target must be a non-zero address');
+  if (!isCalldata(request.data)) errors.push('data must contain at least a four-byte selector');
+  if (!isBigint(request.nativeValue) || request.nativeValue < 0n) {
+    errors.push('nativeValue must be non-negative bigint');
+  }
+  if (request.protocol !== undefined && !isNonEmptyString(request.protocol)) {
+    errors.push('protocol must be non-empty');
+  }
+  if (request.slippageBps !== undefined && !isBps(request.slippageBps)) {
+    errors.push('slippageBps must be between 0 and 10000');
+  }
+  if (!isNonNegativeSafeInteger(request.requestedAt)) {
+    errors.push('requestedAt must be a non-negative safe integer');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function createErc20TransferDecoder(
+  config: Erc20TransferDecoderConfig,
+): SupportedCallDecoder {
+  if (!isPositiveSafeInteger(config.chainId)) {
+    throw new TypeError('chainId must be a positive safe integer');
+  }
+  if (!isNonZeroAddress(config.token)) throw new TypeError('token must be a non-zero address');
+  if (config.id !== undefined && !isNonEmptyString(config.id)) {
+    throw new TypeError('id must be non-empty');
+  }
+  if (config.protocol !== undefined && !isNonEmptyString(config.protocol)) {
+    throw new TypeError('protocol must be non-empty');
+  }
+
+  return {
+    id: config.id ?? `erc20-transfer:${config.chainId}:${config.token.toLowerCase()}`,
+    chainId: config.chainId,
+    target: config.token,
+    selector: '0xa9059cbb',
+    protocol: config.protocol,
+    decode(request) {
+      if (
+        request.data.length !== 138 ||
+        !sameHex(selectorFromCalldata(request.data), '0xa9059cbb')
+      ) {
+        throw new Error('unsupported ERC-20 transfer calldata');
+      }
+      const recipient = `0x${request.data.slice(34, 74)}`;
+      if (!isNonZeroAddress(recipient)) throw new Error('ERC-20 transfer recipient is invalid');
+      const amount = BigInt(`0x${request.data.slice(74, 138)}`);
+      if (amount <= 0n) throw new Error('ERC-20 transfer amount must be positive');
+      return { tokenTransfers: [{ token: request.target, amount }] };
+    },
+  };
+}
+
+export async function evaluateSimulatedExecution(
+  input: EvaluateSimulatedExecutionInput,
+): Promise<ExecutionPipelineDecision> {
+  const checks: ExecutionPipelineCheck[] = [];
+  const requestValidation = validateRawExecutionRequest(input.request);
+  if (!requestValidation.valid) {
+    checks.push(pipelineFail('invalid-request', requestValidation.errors.join('; ')));
+    return pipelineDecision(checks);
+  }
+  if (!Array.isArray(input.decoders)) {
+    checks.push(pipelineFail('invalid-context', 'decoders must be an array'));
+    return pipelineDecision(checks);
+  }
+  const decoderValidation = validateSupportedCallDecoders(input.decoders);
+  if (!decoderValidation.valid) {
+    checks.push(pipelineFail('invalid-context', decoderValidation.errors.join('; ')));
+    return pipelineDecision(checks);
+  }
+  if (!isNonNegativeBigint(input.blockNumber)) {
+    checks.push(pipelineFail('invalid-context', 'blockNumber must be non-negative bigint'));
+    return pipelineDecision(checks);
+  }
+  if (!isSimulationAdapter(input.simulator)) {
+    checks.push(pipelineFail('invalid-context', 'simulator must expose a named simulate function'));
+    return pipelineDecision(checks);
+  }
+
+  const request = input.request as RawExecutionRequest;
+  const decoders = input.decoders as readonly SupportedCallDecoder[];
+  const selector = selectorFromCalldata(request.data);
+  const matchingDecoders = decoders.filter(
+    (decoder) =>
+      decoder.chainId === request.chainId &&
+      sameAddress(decoder.target, request.target) &&
+      sameHex(decoder.selector, selector) &&
+      normalizeProtocol(decoder.protocol) === normalizeProtocol(request.protocol),
+  );
+  if (matchingDecoders.length === 0) {
+    checks.push(pipelineFail('unsupported-call', 'no decoder supports this request'));
+    return pipelineDecision(checks);
+  }
+  if (matchingDecoders.length !== 1) {
+    checks.push(pipelineFail('ambiguous-decoder', 'more than one decoder matches this request'));
+    return pipelineDecision(checks);
+  }
+
+  const decoder = matchingDecoders[0]!;
+  let decoded: unknown;
+  try {
+    decoded = decoder.decode(request);
+  } catch {
+    checks.push(pipelineFail('decode-failed', `decoder ${decoder.id} failed`));
+    return pipelineDecision(checks, { decoderId: decoder.id });
+  }
+  const tokenTransfers = decodedTokenTransfers(decoded);
+  if (tokenTransfers === undefined) {
+    checks.push(
+      pipelineFail('invalid-decoded-intent', `decoder ${decoder.id} returned invalid effects`),
+    );
+    return pipelineDecision(checks, { decoderId: decoder.id });
+  }
+
+  const intent: ExecutionIntent = {
+    chainId: request.chainId,
+    agentId: request.agentId,
+    principal: request.principal,
+    target: request.target,
+    selector,
+    nativeValue: request.nativeValue,
+    tokenTransfers,
+    protocol: request.protocol,
+    slippageBps: request.slippageBps,
+    requestedAt: request.requestedAt,
+  };
+  const intentValidation = validateExecutionIntent(intent);
+  if (!intentValidation.valid) {
+    checks.push(pipelineFail('invalid-decoded-intent', intentValidation.errors.join('; ')));
+    return pipelineDecision(checks, { decoderId: decoder.id });
+  }
+
+  const policyDecision = evaluateExecutionPolicy(input.policy, intent, input.usage, input.now);
+  if (!policyDecision.approved) {
+    checks.push(
+      pipelineFail(
+        'policy-rejected',
+        `policy rejected: ${policyDecision.rejectionReasons.join(', ')}`,
+      ),
+    );
+    return pipelineDecision(checks, { decoderId: decoder.id, intent, policyDecision });
+  }
+
+  const simulationRequest: SimulationRequest = {
+    chainId: request.chainId,
+    from: request.sender,
+    target: request.target,
+    data: request.data,
+    value: request.nativeValue,
+    blockNumber: input.blockNumber,
+  };
+  let simulationResult: unknown;
+  try {
+    simulationResult = await input.simulator.simulate(simulationRequest);
+  } catch {
+    checks.push(pipelineFail('simulation-unavailable', 'simulation adapter failed'));
+    return pipelineDecision(checks, { decoderId: decoder.id, intent, policyDecision });
+  }
+  const simulationValidation = validateSimulationEvidence(simulationResult, input.blockNumber);
+  if (!simulationValidation.valid) {
+    checks.push(pipelineFail('invalid-simulation', simulationValidation.errors.join('; ')));
+    return pipelineDecision(checks, { decoderId: decoder.id, intent, policyDecision });
+  }
+
+  const simulation = simulationResult as SimulationEvidence;
+  if (!simulation.success) {
+    checks.push(
+      pipelineFail(
+        'simulation-reverted',
+        simulation.revertReason ?? 'simulation reverted without a reason',
+      ),
+    );
+    return pipelineDecision(checks, {
+      decoderId: decoder.id,
+      intent,
+      policyDecision,
+      simulation,
+    });
+  }
+
+  return pipelineDecision(checks, {
+    decoderId: decoder.id,
+    intent,
+    policyDecision,
+    simulation,
+  });
+}
+
 export function evaluateExecutionPolicy(
   policy: unknown,
   intent: unknown,
@@ -326,6 +623,92 @@ export function evaluateExecutionPolicy(
   checkTokenTransfers(validPolicy, validIntent, validUsage, checks);
 
   return decision(validPolicy.version, checks);
+}
+
+function validateSupportedCallDecoders(decoders: readonly unknown[]): PolicyValidation {
+  const errors: string[] = [];
+  const ids = new Set<string>();
+  for (const candidate of decoders) {
+    if (!isRecord(candidate)) {
+      errors.push('decoder must be an object');
+      continue;
+    }
+    if (!isNonEmptyString(candidate.id)) {
+      errors.push('decoder id must be non-empty');
+    } else {
+      if (ids.has(candidate.id)) errors.push('decoder ids must be unique');
+      ids.add(candidate.id);
+    }
+    if (!isPositiveSafeInteger(candidate.chainId)) {
+      errors.push('decoder chainId must be a positive safe integer');
+    }
+    if (!isNonZeroAddress(candidate.target)) {
+      errors.push('decoder target must be a non-zero address');
+    }
+    if (!isSelector(candidate.selector)) {
+      errors.push('decoder selector must be exactly four bytes');
+    }
+    if (candidate.protocol !== undefined && !isNonEmptyString(candidate.protocol)) {
+      errors.push('decoder protocol must be non-empty');
+    }
+    if (typeof candidate.decode !== 'function') {
+      errors.push('decoder must expose a decode function');
+    }
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+function decodedTokenTransfers(decoded: unknown): readonly TokenTransferIntent[] | undefined {
+  if (!isRecord(decoded) || !Array.isArray(decoded.tokenTransfers)) return undefined;
+  return decoded.tokenTransfers as readonly TokenTransferIntent[];
+}
+
+function validateSimulationEvidence(
+  evidence: unknown,
+  expectedBlockNumber: bigint,
+): PolicyValidation {
+  const errors: string[] = [];
+  if (!isRecord(evidence)) {
+    return { valid: false, errors: ['simulation evidence must be an object'] };
+  }
+  if (typeof evidence.success !== 'boolean') errors.push('simulation success must be boolean');
+  if (!isNonNegativeBigint(evidence.blockNumber)) {
+    errors.push('simulation blockNumber must be non-negative bigint');
+  } else if (evidence.blockNumber !== expectedBlockNumber) {
+    errors.push('simulation blockNumber must match requested block');
+  }
+  if (!isNonNegativeBigint(evidence.gasUsed)) {
+    errors.push('simulation gasUsed must be non-negative bigint');
+  }
+  if (!isHexBytes(evidence.returnData)) {
+    errors.push('simulation returnData must be hex bytes');
+  }
+  if (evidence.revertReason !== undefined && !isNonEmptyString(evidence.revertReason)) {
+    errors.push('simulation revertReason must be non-empty');
+  }
+  if (evidence.success === true && evidence.revertReason !== undefined) {
+    errors.push('successful simulation must not include a revertReason');
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+function pipelineDecision(
+  checks: readonly ExecutionPipelineCheck[],
+  context: Partial<
+    Pick<ExecutionPipelineDecision, 'decoderId' | 'intent' | 'policyDecision' | 'simulation'>
+  > = {},
+): ExecutionPipelineDecision {
+  const rejectionReasons = checks.filter((check) => !check.passed).map((check) => check.code);
+  return {
+    approved: rejectionReasons.length === 0,
+    checks,
+    rejectionReasons: [...new Set(rejectionReasons)],
+    ...context,
+  };
+}
+
+function pipelineFail(code: ExecutionPipelineCheckCode, detail: string): ExecutionPipelineCheck {
+  return { code, passed: false, detail };
 }
 
 function validateCallRules(rules: readonly unknown[], errors: string[]): void {
@@ -504,6 +887,10 @@ function isBigint(value: unknown): value is bigint {
   return typeof value === 'bigint';
 }
 
+function isNonNegativeBigint(value: unknown): value is bigint {
+  return isBigint(value) && value >= 0n;
+}
+
 function isPositiveSafeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 }
@@ -522,6 +909,18 @@ function isNonZeroAddress(value: unknown): value is Address {
 
 function isSelector(value: unknown): value is Hex {
   return typeof value === 'string' && /^0x[0-9a-fA-F]{8}$/u.test(value);
+}
+
+function isHexBytes(value: unknown): value is Hex {
+  return typeof value === 'string' && /^0x(?:[0-9a-fA-F]{2})*$/u.test(value);
+}
+
+function isCalldata(value: unknown): value is Hex {
+  return typeof value === 'string' && /^0x(?:[0-9a-fA-F]{2}){4,}$/u.test(value);
+}
+
+function selectorFromCalldata(data: Hex): Hex {
+  return data.slice(0, 10) as Hex;
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -546,4 +945,8 @@ function normalizeProtocol(protocol: string | undefined): string {
 
 function minimumBigint(left: bigint, right: bigint): bigint {
   return left < right ? left : right;
+}
+
+function isSimulationAdapter(value: unknown): value is SimulationAdapter {
+  return isRecord(value) && isNonEmptyString(value.name) && typeof value.simulate === 'function';
 }

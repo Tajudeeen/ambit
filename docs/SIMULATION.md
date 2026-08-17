@@ -9,8 +9,9 @@ guarantees future execution.
 
 M6 processes five explicit inputs:
 
-1. A raw execution request containing chain, identity, destination, calldata,
-   native value, optional protocol/slippage metadata, and request timestamp.
+1. A raw execution request containing chain, identity, explicit sender,
+   destination, calldata, native value, optional protocol/slippage metadata, and
+   request timestamp.
 2. A registry of deterministic supported-call decoders.
 3. The M5 execution policy and current usage state.
 4. An explicit evaluation timestamp and simulation block number.
