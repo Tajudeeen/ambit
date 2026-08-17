@@ -143,3 +143,20 @@ from clients.
 **Consequences:** API behavior is testable without a database, Prisma generation
 is unblocked, marketplace visibility remains opt-in filtered, and later UI or
 deployment work can replace transports without weakening the execution boundary.
+
+# ADR-0011: M10 renders live evidence and proxies only pending hires
+
+**Status:** Accepted (M10)
+**Context:** The marketplace UI must be useful with real indexed agents while
+preserving R-VIS, R-NOFAKE, and the M5-M9 execution boundaries. Direct browser
+calls to a separately hosted API also introduce avoidable CORS and deployment
+coupling for the one public mutation.
+**Decision:** Use Next.js App Router server components for marketplace and profile
+reads through a typed M9 client. Encode search/filter state in the URL, render
+explicit empty and unavailable states, and never fall back to sample agents. Route
+browser hire submissions through a same-origin Next handler that forwards only
+the M9 pending-hire fields and preserves structured errors.
+**Consequences:** Pages are shareable, crawlable, and testable without adding a
+client state framework. Deployments can move the API origin through configuration,
+and the UI cannot turn a pending request, relay hash, or missing evidence into a
+verified execution claim.

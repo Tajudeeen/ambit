@@ -73,6 +73,9 @@ MARKETPLACE WEB APP  (apps/web)               M10
 - **R-API:** Marketplace routes validate and present persisted evidence; they do
   not recompute trust, bypass execution controls, accept session secrets, or hide
   agents unless the caller explicitly requests a filter.
+- **R-WEB:** Marketplace pages render live M9 evidence, explicit empty/error
+  states, and opt-in filters. They never use fictional fallback agents or present
+  a pending hire as approved, executed, or passport verified.
 
 ## Why this wins the main BNB prize
 
