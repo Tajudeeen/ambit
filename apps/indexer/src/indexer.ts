@@ -7,7 +7,13 @@ import {
   type NewFeedbackEvent,
 } from '@ambit/erc8004';
 import { createBscClient } from '@ambit/erc8004';
-import { METHODOLOGY_VERSION, type Agent, type Evidence, type EndpointStatus } from '@ambit/core';
+import {
+  METHODOLOGY_VERSION,
+  classifyAgentCategory,
+  type Agent,
+  type Evidence,
+  type EndpointStatus,
+} from '@ambit/core';
 import { probeEndpoint, type ProbeResult } from '@ambit/endpoint';
 import { normalizeFeedback, summarizeReputation } from '@ambit/reputation';
 import { scoreAgent, withTrust } from '@ambit/trust-engine';
@@ -60,6 +66,7 @@ export function eventToAgent(
   const name = reg?.name ?? raw?.name ?? `Agent ${ev.agentId}`;
   const description = reg?.description ?? raw?.description ?? '';
   const capabilities = (reg?.services ?? []).map((s) => s.name ?? '').filter(Boolean);
+  const categoryClassification = reg ? classifyAgentCategory(reg) : null;
   const epUrl = firstEndpoint(rawMetadataJson); // lenient: endpoint even if other fields invalid
 
   let endpoint: Agent['endpoint'] = null;
@@ -88,6 +95,24 @@ export function eventToAgent(
       methodologyVersion: 'v0.0.0',
     });
   }
+  if (categoryClassification?.status === 'classified') {
+    evidence.push({
+      source: 'metadata-category-classification',
+      timestamp: resolvedAt,
+      blockNumber: Number(ev.blockNumber),
+      txHash: ev.txHash,
+      methodologyVersion: categoryClassification.methodologyVersion,
+    });
+  }
+  if (categoryClassification?.status === 'ambiguous') {
+    evidence.push({
+      source: 'metadata-category-ambiguous',
+      timestamp: resolvedAt,
+      blockNumber: Number(ev.blockNumber),
+      txHash: ev.txHash,
+      methodologyVersion: categoryClassification.methodologyVersion,
+    });
+  }
   if (probe && probe.status === 'blocked') {
     evidence.push({
       source: 'endpoint-ssrf-blocked',
@@ -107,7 +132,7 @@ export function eventToAgent(
     agentURI: ev.agentURI,
     name,
     description,
-    category: null, // assigned by trust engine / category classifier (M3/M11)
+    category: categoryClassification?.category ?? null,
     capabilities,
     endpoint,
     reputation: null, // filled by ingestReputation

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AgentCard } from '@/components/agent-card';
+import { CategoryDirectory } from '@/components/category-directory';
 import { SearchFilters } from '@/components/search-filters';
 import {
   MarketplaceApiError,
@@ -94,6 +95,8 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           <span>hidden by default</span>
         </div>
       </section>
+
+      <CategoryDirectory activeCategory={values.category} />
 
       <section className="marketplace-section section-shell" id="marketplace">
         <div className="section-heading">
