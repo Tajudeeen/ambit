@@ -215,3 +215,21 @@ settlement.
 TermiX activity or a new execution boundary. A future official submission or job
 adapter can consume the report only after its endpoint, authentication, contract,
 and settlement semantics are independently verified.
+
+# ADR-0015: M14 hardens verified boundaries without invented infrastructure
+
+**Status:** Accepted (M14)
+**Context:** The public API accepted unbounded or mislabeled mutation bodies, and
+runtime configuration accepted numeric values that could be fractional, unsafe,
+negative, zero, or outside valid network ranges. The repository does not yet
+define authenticated callers, trusted proxies, or a transport that pins verified
+DNS addresses to outbound connections.
+**Decision:** Apply standard defensive headers to all API responses, limit hire
+request bodies to 16 KiB, and require a JSON media type before parsing. Validate
+chain IDs, ports, batch sizes, and start blocks as bounded safe integers before
+startup. Do not derive identity from forwarding headers or claim SSRF protection
+until hostname validation is pinned to the actual network connection.
+**Consequences:** Common parser and configuration failures are rejected early and
+deterministically without expanding Ambit's trust claims. Authentication, rate
+limiting, trusted-proxy deployment, and connection-pinned endpoint verification
+remain explicit future architecture work rather than incomplete M14 patches.
