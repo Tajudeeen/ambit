@@ -160,3 +160,20 @@ the M9 pending-hire fields and preserves structured errors.
 client state framework. Deployments can move the API origin through configuration,
 and the UI cannot turn a pending request, relay hash, or missing evidence into a
 verified execution claim.
+
+# ADR-0012: M11 classifies only valid metadata with conservative aliases
+
+**Status:** Accepted (M11)
+**Context:** The marketplace needs four useful category views, but ERC-8004 does
+not provide a canonical category field and free-form metadata may be incomplete,
+multi-purpose, or adversarial. An LLM classifier would be non-reproducible and a
+forced category would fabricate precision.
+**Decision:** Add a versioned deterministic classifier in `@ambit/core`. It uses
+a closed alias table, gives structured service fields precedence over name and
+description, and returns `null` for unknown or ambiguous signals. The indexer runs
+it only on registration files that pass M2 validation and records classification
+or ambiguity evidence without changing trust or visibility.
+**Consequences:** Category filters become useful and reproducible while general
+and multi-purpose agents remain visible. Taxonomy changes are reviewable code
+changes, and category labels cannot be mistaken for independent verification or
+execution authorization.

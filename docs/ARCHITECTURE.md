@@ -16,7 +16,7 @@ BNB SMART CHAIN
 INDEXING + EVIDENCE LAYER  (apps/indexer, packages/erc8004)
   discovery, metadata ingestion, endpoint verification, reputation ingestion,
   registered-wallet linkage, transaction-count activity evidence, payment
-  evidence, evidence normalization, freshness
+  evidence, deterministic category classification, evidence normalization, freshness
         |
         v
 TRUST ENGINE  (packages/trust-engine)         M3
@@ -76,6 +76,9 @@ MARKETPLACE WEB APP  (apps/web)               M10
 - **R-WEB:** Marketplace pages render live M9 evidence, explicit empty/error
   states, and opt-in filters. They never use fictional fallback agents or present
   a pending hire as approved, executed, or passport verified.
+- **R-CATEGORY:** Category is derived only from valid registration metadata by a
+  versioned deterministic classifier. Unknown or conflicting signals remain
+  uncategorized and discoverable; category never changes trust or authority.
 
 ## Why this wins the main BNB prize
 
