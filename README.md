@@ -92,3 +92,4 @@ docker compose up -d        # Postgres for M1+
 - [x] M4a Registered-wallet activity evidence (transaction count only; no execution claims)
 - [x] M4b Merkle score attestation contract (append-only roots, deterministic proofs, compiler-verified ABI)
 - [x] M5 Deterministic execution policy engine (fail-closed validation, identity/call/value/token/slippage limits, explicit usage state)
+- [x] M6 Supported transaction simulation (registered deterministic decoders, M5 short-circuit, explicit-block evidence, fail-closed provider/revert handling)
