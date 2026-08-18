@@ -38,6 +38,8 @@ services:
       BSC_TESTNET_CHAIN_ID: ${BSC_TESTNET_CHAIN_ID:-97}
       ERC8004_IDENTITY_REGISTRY_BSC: ${ERC8004_IDENTITY_REGISTRY_BSC:-}
       ERC8004_REPUTATION_REGISTRY_BSC: ${ERC8004_REPUTATION_REGISTRY_BSC:-}
+      AMBIT_HIRE_TOKEN: ${AMBIT_HIRE_TOKEN:?AMBIT_HIRE_TOKEN is required}
+      AMBIT_RELEASE_ID: ${AMBIT_RELEASE_ID:?AMBIT_RELEASE_ID is required}
       API_PORT: 8787
     command: ['pnpm', '--filter', '@ambit/api', 'start']
     depends_on:
@@ -65,6 +67,7 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+      AMBIT_HIRE_TOKEN: ${AMBIT_HIRE_TOKEN:?AMBIT_HIRE_TOKEN is required}
     depends_on:
       api:
         condition: service_healthy

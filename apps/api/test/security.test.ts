@@ -14,6 +14,57 @@ describe('API security boundaries', () => {
     expect(response.headers.get('referrer-policy')).toBe('no-referrer');
   });
 
+  it('fails closed without release identity and reports the reviewed identity when configured', async () => {
+    const missing = await createApp({ releaseId: null }).request('/version');
+    expect(missing.status).toBe(503);
+    expect(await missing.json()).toEqual({
+      status: 'unavailable',
+      service: 'ambit-api',
+      error: {
+        code: 'release-identity-unavailable',
+        message: 'release identity is not configured',
+      },
+    });
+
+    const configured = await createApp({ releaseId: 'abcdef1234567890' }).request('/version');
+    expect(configured.status).toBe(200);
+    expect(await configured.json()).toEqual({
+      status: 'ok',
+      service: 'ambit-api',
+      releaseId: 'abcdef1234567890',
+    });
+  });
+
+  it('generates correlation IDs and logs only bounded request metadata', async () => {
+    const events: unknown[] = [];
+    const response = await createApp({
+      logger: (event) => events.push(event),
+      requestIdFactory: () => 'generated-request-id',
+    }).request('/health?credential=must-not-log', {
+      headers: {
+        authorization: 'Bearer must-not-log',
+        'x-request-id': 'caller-controlled-id',
+      },
+    });
+
+    expect(response.headers.get('x-request-id')).toBe('generated-request-id');
+    expect(events).toEqual([
+      {
+        event: 'http-request',
+        service: 'ambit-api',
+        requestId: 'generated-request-id',
+        method: 'GET',
+        path: '/health',
+        status: 200,
+        durationMs: expect.any(Number),
+        timestamp: expect.any(String),
+      },
+    ]);
+    const serialized = JSON.stringify(events);
+    expect(serialized).not.toContain('must-not-log');
+    expect(serialized).not.toContain('caller-controlled-id');
+  });
+
   it('fails closed when hire authorization is not configured', async () => {
     const response = await createApp({ hireToken: null }).request(
       `/agents/${AGENT_REGISTRY}/hire`,

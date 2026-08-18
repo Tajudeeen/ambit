@@ -56,6 +56,10 @@ Health proves only process liveness. Readiness proves only that the configured
 repository dependency responds. Neither endpoint proves uptime, correctness of
 external systems, successful execution, or alert coverage.
 
+The implementation uses `AMBIT_RELEASE_ID` for `GET /version` and emits one
+bounded JSON event per API request. Incoming correlation headers are not trusted;
+the API generates its own `x-request-id` value for every response.
+
 ### M17d: production verification
 
 A read-only verifier accepts explicit HTTPS API and web origins plus an expected
