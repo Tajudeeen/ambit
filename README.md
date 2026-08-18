@@ -103,3 +103,4 @@ docker compose up -d        # Postgres for M1+
 - [x] M12 PancakeSwap integration (pinned official SDKs, quote-bound exact-input V2/V3 calldata, decoded spend/slippage, fail-closed simulation path)
 - [x] M13 TermiX integration (three-task paired advantage reports, evidence references, deterministic integer metrics, read-only public config/stats client)
 - [x] M14 Security hardening (bounded JSON mutations, defensive API headers, fail-closed numeric configuration, adversarial regression coverage)
+- [x] M15 Deployment (Node 24 container targets, committed Prisma migration, fail-closed Compose topology, Linux CI image verification)
