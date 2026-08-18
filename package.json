@@ -7,6 +7,7 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
+    "demo:rehearse": "pnpm --filter @ambit/demo rehearse",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

@@ -59,6 +59,7 @@ packages/
   contracts/      Merkle attestation contract (M4b)
   pancakeswap/    quote-bound official PancakeSwap Universal Router adapter (M12)
   termix/      deterministic advantage reports + read-only AACP discovery (M13)
+  demo/        read-only live deployment rehearsal (M16)
   sdk/        shared client SDK
   ui/         shared UI components
   testing/    shared test fixtures/utilities
