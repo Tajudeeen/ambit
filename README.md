@@ -105,3 +105,4 @@ docker compose up -d        # Postgres for M1+
 - [x] M13 TermiX integration (three-task paired advantage reports, evidence references, deterministic integer metrics, read-only public config/stats client)
 - [x] M14 Security hardening (bounded JSON mutations, defensive API headers, fail-closed numeric configuration, adversarial regression coverage)
 - [x] M15 Deployment (Node 24 container targets, committed Prisma migration, fail-closed Compose topology, Linux CI image verification)
+- [x] M16 Demo rehearsal (read-only live preflight, real discovery/profile/history evidence, deterministic failure on empty or inconsistent deployments)
