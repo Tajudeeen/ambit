@@ -60,6 +60,7 @@ packages/
   pancakeswap/    quote-bound official PancakeSwap Universal Router adapter (M12)
   termix/      deterministic advantage reports + read-only AACP discovery (M13)
   demo/        read-only live deployment rehearsal (M16)
+  operations/  read-only production deployment verifier (M17)
   sdk/        shared client SDK
   ui/         shared UI components
   testing/    shared test fixtures/utilities
@@ -106,4 +107,4 @@ docker compose up -d        # Postgres for M1+
 - [x] M14 Security hardening (bounded JSON mutations, defensive API headers, fail-closed numeric configuration, adversarial regression coverage)
 - [x] M15 Deployment (Node 24 container targets, committed Prisma migration, fail-closed Compose topology, Linux CI image verification)
 - [x] M16 Demo rehearsal (read-only live preflight, real discovery/profile/history evidence, deterministic failure on empty or inconsistent deployments)
-- [ ] M17 Production readiness (connection-pinned endpoint verification, authenticated write boundary, operational telemetry, external deployment evidence contract)
+- [ ] M17 Production readiness (connection-pinned endpoint verification, authenticated write boundary, operational telemetry, external deployment evidence contract; M17d verifier implemented)

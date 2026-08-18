@@ -71,6 +71,19 @@ missing or inconsistent and returns a structured result suitable for review.
 The verifier never substitutes fixtures, local defaults, cached screenshots, or
 synthetic records for unavailable production evidence.
 
+Run it against an operator-selected deployment with:
+
+```bash
+PRODUCTION_API_URL=https://api.example \
+PRODUCTION_WEB_URL=https://app.example \
+EXPECTED_AMBIT_RELEASE_ID=release-2026-08-18 \
+pnpm production:verify
+```
+
+`PRODUCTION_VERIFY_TIMEOUT_MS` may override the per-request timeout. The
+command is read-only and returns non-zero when configuration is invalid or any
+required check fails.
+
 ## External evidence checklist
 
 Repository completion does not satisfy these operator-owned requirements:
