@@ -251,3 +251,21 @@ external credentials.
 claiming a live environment. Operators retain responsibility for registry, DNS,
 TLS, scheduling, observability, backups, and rollback compatibility; deployment
 fails closed when configuration, migrations, or readiness cannot be established.
+
+# ADR-0017: M16 rehearses live evidence without synthetic fallback data
+
+**Status:** Accepted (M16)
+**Context:** A final demo can accidentally turn an empty deployment, pending
+hire, or unavailable partner into a success claim by using screenshots, fixtures,
+or optimistic narration. The marketplace must demonstrate the same evidence and
+visibility rules that govern operation.
+**Decision:** Add a read-only, versioned rehearsal preflight that checks API
+liveness, repository readiness, non-empty discovery, profile identity, public
+history shape, and web availability from operator-supplied origins. The preflight
+returns structured JSON and exits non-zero on missing or inconsistent evidence.
+The demo may show an explicitly pending hire, but never creates or labels it as
+authorized, executed, settled, or passport verified.
+**Consequences:** Demo readiness is reproducible and auditable, while an empty or
+broken deployment remains visible instead of being hidden by synthetic data.
+Operators still need separate evidence for uptime, execution, partner settlement,
+and infrastructure claims.

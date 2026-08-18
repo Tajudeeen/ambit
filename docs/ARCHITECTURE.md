@@ -104,6 +104,10 @@ MARKETPLACE WEB APP  (apps/web)               M10
   migrations, explicit runtime configuration, and separate health/readiness
   gates. Images contain no secrets, migration failure stops startup, and local
   artifacts never imply that public infrastructure has been provisioned.
+- **R-DEMO:** Rehearsals use only live API and web responses from the selected
+  deployment. Empty, unavailable, or inconsistent evidence fails the preflight;
+  fixtures, stale screenshots, fabricated agents, and pending-to-executed claims
+  never substitute for a deterministic release boundary.
 
 ## Why this wins the main BNB prize
 
