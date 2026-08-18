@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS base
+FROM node:24-bookworm-slim AS base
 
 RUN npm install --global pnpm@11.20.0
 WORKDIR /workspace
@@ -31,7 +31,7 @@ FROM build-indexer AS indexer
 ENV NODE_ENV=production
 CMD ["pnpm", "--filter", "@ambit/indexer", "start"]
 
-FROM node:20-bookworm-slim AS web
+FROM node:24-bookworm-slim AS web
 ENV NODE_ENV=production
 WORKDIR /workspace
 COPY --from=build-web /workspace/apps/web/.next/standalone ./

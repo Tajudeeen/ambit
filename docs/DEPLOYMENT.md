@@ -12,7 +12,7 @@ and public infrastructure remain the deployer's responsibility.
 
 ## Release boundary
 
-Every application image is built from the repository root with Node.js 20,
+Every application image is built from the repository root with Node.js 24.12,
 pnpm 11, and the committed lockfile. Dependency installation uses
 `--frozen-lockfile`, and the Prisma client is generated during the image build.
 
