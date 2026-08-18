@@ -49,16 +49,33 @@ rendering. It is not a secret.
 injected by the deployment platform and must not appear in image layers, Compose
 files, logs, or source control.
 
+`AMBIT_HIRE_TOKEN` is a runtime-only server-to-server credential. The API uses it
+to authorize hire mutations, while the web server uses the same value when it
+forwards a same-origin hire request. It must never be prefixed with
+`NEXT_PUBLIC_`, rendered into browser code, or logged. The API fails closed when
+the value is absent or does not meet its format and length requirements.
+
+`AMBIT_RELEASE_ID` is non-secret and identifies the reviewed release, such as a
+commit SHA or immutable image identity. The API exposes it through `GET /version`.
+Deployments must supply the exact reviewed value; missing or malformed identity
+causes the version check to fail closed.
+
 ## Health and release checks
 
 The API exposes separate process and dependency checks:
 
 - `GET /health` proves the API process can serve HTTP
 - `GET /ready` proves the configured marketplace repository is reachable
+- `GET /version` reports the configured reviewed release identity
 
 A deployment must not route production traffic until readiness succeeds. The
 web service is considered ready only after its HTTP root responds successfully.
 The indexer reports success through its process exit code.
+
+API request telemetry is emitted as one JSON object per request. It contains a
+generated request identifier, method, bounded path, status, duration, and
+timestamp. It excludes query strings, headers, authorization values, bodies,
+database URLs, RPC credentials, and upstream payloads.
 
 CI verifies typecheck, lint, tests, migration/schema synchronization, and all
 container build targets. Image publication or provider rollout requires explicit

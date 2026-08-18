@@ -8,6 +8,7 @@
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "demo:rehearse": "pnpm --filter @ambit/demo rehearse",
+    "production:verify": "pnpm --filter @ambit/operations verify",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

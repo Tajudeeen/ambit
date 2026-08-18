@@ -11,6 +11,7 @@ describe('M10 marketplace web contracts', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     process.env.NEXT_PUBLIC_API_URL = 'http://api.test';
+    process.env.AMBIT_HIRE_TOKEN = 'test-hire-token-123456';
   });
 
   it('normalizes URL search state without adding default visibility gates', () => {
@@ -125,6 +126,7 @@ describe('M10 marketplace web contracts', () => {
 
     expect(response.status).toBe(202);
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(new Headers(init.headers).get('authorization')).toBe('Bearer test-hire-token-123456');
     expect(init.body).toBe(
       JSON.stringify({
         clientRequestId: 'client-1',

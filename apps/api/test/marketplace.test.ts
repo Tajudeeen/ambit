@@ -14,6 +14,7 @@ const OWNER = '0x1111111111111111111111111111111111111111';
 const REQUESTER = '0x2222222222222222222222222222222222222222';
 const DESTINATION = '0x3333333333333333333333333333333333333333';
 const AGENT_REGISTRY = `eip155:56:${REGISTRY_ADDRESS}:7`;
+const HIRE_TOKEN = 'test-hire-token-123456';
 
 const execution: ExecutionHistoryItem = {
   id: 'request_1',
@@ -177,9 +178,9 @@ describe('marketplace API', () => {
   });
 
   it('creates only a pending hire request and returns 202', async () => {
-    const response = await createApp({ repository }).request(`/agents/${AGENT_REGISTRY}/hire`, {
+    const response = await createApp({ repository, hireToken: HIRE_TOKEN }).request(`/agents/${AGENT_REGISTRY}/hire`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${HIRE_TOKEN}` },
       body: JSON.stringify({
         clientRequestId: 'client-1',
         requester: REQUESTER,
@@ -216,9 +217,9 @@ describe('marketplace API', () => {
       ],
     ],
   ])('rejects %s for hire requests', async (_label, body, issues) => {
-    const response = await createApp({ repository }).request(`/agents/${AGENT_REGISTRY}/hire`, {
+    const response = await createApp({ repository, hireToken: HIRE_TOKEN }).request(`/agents/${AGENT_REGISTRY}/hire`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${HIRE_TOKEN}` },
       body,
     });
     expect(response.status).toBe(400);
@@ -231,7 +232,7 @@ describe('marketplace API', () => {
   it('maps conflicts and repository failures to public errors', async () => {
     const hire = {
       method: 'POST' as const,
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${HIRE_TOKEN}` },
       body: JSON.stringify({
         clientRequestId: 'client-1',
         requester: REQUESTER,
@@ -242,7 +243,7 @@ describe('marketplace API', () => {
     repository.createHire.mockRejectedValueOnce(
       new MarketplaceConflictError('clientRequestId is already used'),
     );
-    const conflict = await createApp({ repository }).request(
+    const conflict = await createApp({ repository, hireToken: HIRE_TOKEN }).request(
       `/agents/${AGENT_REGISTRY}/hire`,
       hire,
     );

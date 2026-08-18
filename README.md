@@ -60,6 +60,7 @@ packages/
   pancakeswap/    quote-bound official PancakeSwap Universal Router adapter (M12)
   termix/      deterministic advantage reports + read-only AACP discovery (M13)
   demo/        read-only live deployment rehearsal (M16)
+  operations/  read-only production deployment verifier (M17)
   sdk/        shared client SDK
   ui/         shared UI components
   testing/    shared test fixtures/utilities
@@ -72,7 +73,7 @@ M0 repository baseline → M1 BSC+ERC-8004 → M2 discovery pipeline → M3 trus
 engine → M4 on-chain activity evidence + Merkle attestation → M5 policy engine → M6 simulation → M7 Altana →
 M8 execution passport → M9 marketplace backend → M10 frontend → M11 four
 categories → M12 PancakeSwap → M13 TermiX → M14 security hardening → M15 deploy →
-M16 demo rehearsal.
+M16 demo rehearsal -> M17 production readiness.
 
 Each milestone is implemented, tested, reviewed, committed, then **STOP** until
 verification passes. See `docs/ARCHITECTURE.md`.
@@ -106,3 +107,4 @@ docker compose up -d        # Postgres for M1+
 - [x] M14 Security hardening (bounded JSON mutations, defensive API headers, fail-closed numeric configuration, adversarial regression coverage)
 - [x] M15 Deployment (Node 24 container targets, committed Prisma migration, fail-closed Compose topology, Linux CI image verification)
 - [x] M16 Demo rehearsal (read-only live preflight, real discovery/profile/history evidence, deterministic failure on empty or inconsistent deployments)
+- [x] M17 Production readiness (connection-pinned endpoint verification, authenticated write boundary, operational telemetry, read-only production evidence verifier, external deployment evidence contract)

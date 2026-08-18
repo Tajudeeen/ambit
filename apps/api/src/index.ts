@@ -1,3 +1,4 @@
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { prisma } from '@ambit/db';
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -17,18 +18,89 @@ import { createPrismaMarketplaceRepository } from './prisma-repository.js';
 
 export const health = (context: Context) => context.json({ status: 'ok', service: 'ambit-api' });
 export const HIRE_REQUEST_BODY_LIMIT_BYTES = 16 * 1024;
+export const HIRE_AUTH_ENV = 'AMBIT_HIRE_TOKEN';
+export const RELEASE_ID_ENV = 'AMBIT_RELEASE_ID';
+
+export interface HttpRequestEvent {
+  event: 'http-request';
+  service: 'ambit-api';
+  requestId: string;
+  method: string;
+  path: string;
+  status: number;
+  durationMs: number;
+  timestamp: string;
+}
+
+export interface StartupEvent {
+  event: 'startup';
+  service: 'ambit-api';
+  releaseId: string | null;
+  port: number;
+  timestamp: string;
+}
+
+export type OperationalEvent = HttpRequestEvent | StartupEvent;
+export type OperationalLogger = (event: OperationalEvent) => void;
 
 export interface CreateAppOptions {
   repository?: MarketplaceRepository;
+  hireToken?: string | null;
+  releaseId?: string | null;
+  logger?: OperationalLogger;
+  requestIdFactory?: () => string;
 }
 
 export function createApp(options: CreateAppOptions = {}): Hono {
   const repository = options.repository ?? createPrismaMarketplaceRepository(prisma);
+  const hireToken = options.hireToken ?? process.env[HIRE_AUTH_ENV] ?? null;
+  const releaseId = options.releaseId ?? process.env[RELEASE_ID_ENV] ?? null;
+  const logger = options.logger ?? (() => undefined);
+  const requestIdFactory = options.requestIdFactory ?? randomUUID;
   const app = new Hono();
 
   app.onError((error, context) => errorResponse(error, context));
   app.use('*', secureHeaders());
+  app.use('*', async (context, next) => {
+    const requestId = requestIdFactory();
+    const startedAt = Date.now();
+    context.header('x-request-id', requestId);
+    try {
+      await next();
+    } finally {
+      try {
+        logger({
+          event: 'http-request',
+          service: 'ambit-api',
+          requestId,
+          method: context.req.method,
+          path: safePath(context.req.url),
+          status: context.res.status,
+          durationMs: Math.max(0, Date.now() - startedAt),
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        void error;
+      }
+    }
+  });
   app.get('/health', health);
+  app.get('/version', (context) => {
+    if (!isUsableReleaseId(releaseId)) {
+      return context.json(
+        {
+          status: 'unavailable',
+          service: 'ambit-api',
+          error: {
+            code: 'release-identity-unavailable',
+            message: 'release identity is not configured',
+          },
+        },
+        503,
+      );
+    }
+    return context.json({ status: 'ok', service: 'ambit-api', releaseId });
+  });
   app.get('/ready', async (context) => {
     try {
       await repository.ready();
@@ -61,6 +133,7 @@ export function createApp(options: CreateAppOptions = {}): Hono {
 
   app.post(
     '/agents/:agentRegistry/hire',
+    (context, next) => requireHireAuthorization(context, hireToken, next),
     bodyLimit({
       maxSize: HIRE_REQUEST_BODY_LIMIT_BYTES,
       onError: (context) =>
@@ -97,6 +170,71 @@ export function createApp(options: CreateAppOptions = {}): Hono {
   });
 
   return app;
+}
+
+export function logOperationalEvent(event: OperationalEvent): void {
+  console.log(JSON.stringify(event));
+}
+
+function isUsableReleaseId(releaseId: string | null): releaseId is string {
+  return (
+    releaseId !== null &&
+    releaseId.length >= 7 &&
+    releaseId.length <= 128 &&
+    /^[A-Za-z0-9][A-Za-z0-9._:@+-]*$/u.test(releaseId)
+  );
+}
+
+function safePath(url: string): string {
+  try {
+    const path = new URL(url).pathname;
+    return path.length <= 256 ? path : '<path-omitted>';
+  } catch {
+    return '<invalid-url>';
+  }
+}
+
+async function requireHireAuthorization(
+  context: Context,
+  configuredToken: string | null,
+  next: () => Promise<void>,
+): Promise<Response | void> {
+  if (!isUsableHireToken(configuredToken)) {
+    return context.json(
+      {
+        error: {
+          code: 'mutation-auth-unavailable',
+          message: 'hire authorization is not configured',
+        },
+      },
+      503,
+    );
+  }
+
+  const authorization = context.req.header('authorization');
+  const prefix = 'Bearer ';
+  const presentedToken = authorization?.startsWith(prefix)
+    ? authorization.slice(prefix.length)
+    : null;
+  if (!presentedToken || !matchesToken(presentedToken, configuredToken)) {
+    return context.json(
+      { error: { code: 'unauthorized', message: 'hire authorization required' } },
+      401,
+      { 'www-authenticate': 'Bearer' },
+    );
+  }
+
+  await next();
+}
+
+function isUsableHireToken(token: string | null): token is string {
+  return token !== null && token.length >= 16 && token.length <= 512 && /^[\x21-\x7e]+$/u.test(token);
+}
+
+function matchesToken(presentedToken: string, configuredToken: string): boolean {
+  const presented = Buffer.from(presentedToken, 'utf8');
+  const configured = Buffer.from(configuredToken, 'utf8');
+  return presented.length === configured.length && timingSafeEqual(presented, configured);
 }
 
 function requireAgentRegistry(value: string): string {
