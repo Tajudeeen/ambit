@@ -201,7 +201,7 @@ export async function indexOnce(deps: IndexerDeps): Promise<{ toBlock: number; a
   const net = getNetwork(deps.chainId);
   const client = createBscClient(deps.rpcUrl, deps.chainId === 97);
   const reader = new Erc8004Reader(client, net);
-  const probe = deps.probeImpl ?? ((url: string) => probeEndpoint(url, deps.fetchImpl));
+  const probe = deps.probeImpl ?? ((url: string) => probeEndpoint(url));
   const feedbackSrc = deps.feedbackSource ?? ((from, to) => reader.getNewFeedbackEvents(from, to));
   const activityClient: ActivityClient = deps.activityClient ?? {
     getTransactionCount: ({ address, blockNumber }) =>
