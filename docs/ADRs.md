@@ -269,3 +269,25 @@ authorized, executed, settled, or passport verified.
 broken deployment remains visible instead of being hidden by synthetic data.
 Operators still need separate evidence for uptime, execution, partner settlement,
 and infrastructure claims.
+
+# ADR-0018: M17 separates repository readiness from production claims
+
+**Status:** Accepted (M17)
+**Context:** M14 records that hostname validation is not connection-level SSRF
+protection and intentionally omits identity derived from untrusted forwarding
+headers. M15 provides reproducible images but does not prove registry, DNS, TLS,
+managed database, monitoring, or rollback infrastructure. M16 rehearses live
+read-only evidence but does not establish uptime or operational response.
+**Decision:** Harden the boundaries that can be established in the repository:
+pin every verified endpoint address to the actual outbound connection, require an
+explicit server-to-server credential for marketplace mutations, emit bounded and
+redacted operational telemetry, and add a read-only production verification
+contract that consumes operator-supplied origins and expected release identity.
+External infrastructure evidence remains operator-supplied and must be reported
+separately from repository or CI results. Public discovery reads remain open.
+**Consequences:** Ambit can reject DNS-rebinding attempts and unauthenticated
+mutation requests while producing deterministic release evidence without
+pretending to operate infrastructure it does not control. Credential custody,
+distributed rate limiting, WAF policy, DNS, certificates, image publication,
+database backups, alert delivery, and incident response still require a selected
+deployment platform and independent evidence.

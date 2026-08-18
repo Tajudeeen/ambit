@@ -48,6 +48,11 @@ MARKETPLACE API  (apps/api)                   M9
         |
         v
 MARKETPLACE WEB APP  (apps/web)               M10
+        |
+        v
+PRODUCTION READINESS  (cross-cutting)          M17
+  pinned outbound transport, authenticated writes, redacted telemetry,
+  operator-supplied deployment evidence
 ```
 
 ## Architectural rules
@@ -75,6 +80,15 @@ MARKETPLACE WEB APP  (apps/web)               M10
 - **R-NOCUSTODY:** No custom custody unless architecture strictly requires it;
   use Altana for agent authority.
 - **R-NOFAKE:** No hardcoded/fictional agents, reputations, or transactions.
+- **R-TRANSPORT:** Endpoint policy applies to the address used by the actual
+  connection. A DNS preflight followed by an independently resolved request is
+  not connection-level SSRF protection.
+- **R-INGRESS:** Public reads remain discoverable. Mutation authorization uses
+  explicit server-to-server credentials and never trusts forwarding headers as
+  caller identity without a configured proxy boundary.
+- **R-OPS:** Logs and readiness evidence are structured, bounded, and redacted.
+  Repository checks may establish release readiness but never prove a public
+  deployment, uptime, monitoring coverage, or operator response.
 - **R-PASSPORT:** A relay hash is not an execution claim. Successful execution
   requires a receipt matched to the exact approved request, a canonical block,
   explicit confirmations, and durable passport persistence.
