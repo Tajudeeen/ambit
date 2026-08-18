@@ -233,3 +233,21 @@ until hostname validation is pinned to the actual network connection.
 deterministically without expanding Ambit's trust claims. Authentication, rate
 limiting, trusted-proxy deployment, and connection-pinned endpoint verification
 remain explicit future architecture work rather than incomplete M14 patches.
+
+# ADR-0016: M15 ships provider-neutral artifacts with a migration gate
+
+**Status:** Accepted (M15)
+**Context:** Ambit had development commands and a local PostgreSQL service but no
+application image targets, production migration history, or reproducible release
+checks. Selecting a hosting vendor or committing credentials would invent
+infrastructure outside the repository's evidence boundary.
+**Decision:** Build API, web, and indexer targets from Node.js 20, pnpm 11, and the
+frozen lockfile. Commit an initial Prisma migration, require `migrate deploy`
+before application startup, inject secrets only at runtime, and use separate API
+liveness and repository-readiness checks. CI validates migration synchronization
+and container builds but does not publish or roll out images without explicit
+external credentials.
+**Consequences:** Reviewed commits become reproducible deployment inputs without
+claiming a live environment. Operators retain responsibility for registry, DNS,
+TLS, scheduling, observability, backups, and rollback compatibility; deployment
+fails closed when configuration, migrations, or readiness cannot be established.

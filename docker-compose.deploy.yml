@@ -1,0 +1,94 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+    volumes:
+      - ambit-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: .
+      target: api
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+    command: ['pnpm', '--filter', '@ambit/db', 'db:deploy']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    build:
+      context: .
+      target: api
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      BSC_RPC_URL: ${BSC_RPC_URL:?BSC_RPC_URL is required}
+      BSC_CHAIN_ID: ${BSC_CHAIN_ID:-56}
+      BSC_TESTNET_RPC_URL: ${BSC_TESTNET_RPC_URL:-https://data-seed-prebsc-1-s1.binance.org:8545}
+      BSC_TESTNET_CHAIN_ID: ${BSC_TESTNET_CHAIN_ID:-97}
+      ERC8004_IDENTITY_REGISTRY_BSC: ${ERC8004_IDENTITY_REGISTRY_BSC:-}
+      ERC8004_REPUTATION_REGISTRY_BSC: ${ERC8004_REPUTATION_REGISTRY_BSC:-}
+      API_PORT: 8787
+    command: ['pnpm', '--filter', '@ambit/api', 'start']
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - '${API_PORT:-8787}:8787'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8787/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      target: web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '${WEB_PORT:-3000}:3000'
+
+  indexer:
+    profiles: ['indexer']
+    build:
+      context: .
+      target: indexer
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      BSC_RPC_URL: ${BSC_RPC_URL:?BSC_RPC_URL is required}
+      BSC_CHAIN_ID: ${BSC_CHAIN_ID:-56}
+      BSC_TESTNET_RPC_URL: ${BSC_TESTNET_RPC_URL:-https://data-seed-prebsc-1-s1.binance.org:8545}
+      BSC_TESTNET_CHAIN_ID: ${BSC_TESTNET_CHAIN_ID:-97}
+      ERC8004_IDENTITY_REGISTRY_BSC: ${ERC8004_IDENTITY_REGISTRY_BSC:-}
+      ERC8004_REPUTATION_REGISTRY_BSC: ${ERC8004_REPUTATION_REGISTRY_BSC:-}
+      INDEXER_BATCH_SIZE: ${INDEXER_BATCH_SIZE:-200}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: 'no'
+
+volumes:
+  ambit-pg-data:
