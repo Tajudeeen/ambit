@@ -42,6 +42,9 @@ Forwarded IP headers are not an authentication mechanism. Distributed rate
 limiting remains an infrastructure responsibility until a trusted ingress and
 shared enforcement store are selected.
 
+The implementation uses `AMBIT_HIRE_TOKEN` only between the server-side web
+proxy and the API. Public browser code never receives the value.
+
 ### M17c: operational evidence
 
 The API exposes a non-secret release identity derived from the reviewed build,

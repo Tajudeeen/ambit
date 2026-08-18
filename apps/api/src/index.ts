@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { prisma } from '@ambit/db';
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -17,13 +18,16 @@ import { createPrismaMarketplaceRepository } from './prisma-repository.js';
 
 export const health = (context: Context) => context.json({ status: 'ok', service: 'ambit-api' });
 export const HIRE_REQUEST_BODY_LIMIT_BYTES = 16 * 1024;
+export const HIRE_AUTH_ENV = 'AMBIT_HIRE_TOKEN';
 
 export interface CreateAppOptions {
   repository?: MarketplaceRepository;
+  hireToken?: string | null;
 }
 
 export function createApp(options: CreateAppOptions = {}): Hono {
   const repository = options.repository ?? createPrismaMarketplaceRepository(prisma);
+  const hireToken = options.hireToken ?? process.env[HIRE_AUTH_ENV] ?? null;
   const app = new Hono();
 
   app.onError((error, context) => errorResponse(error, context));
@@ -61,6 +65,7 @@ export function createApp(options: CreateAppOptions = {}): Hono {
 
   app.post(
     '/agents/:agentRegistry/hire',
+    (context, next) => requireHireAuthorization(context, hireToken, next),
     bodyLimit({
       maxSize: HIRE_REQUEST_BODY_LIMIT_BYTES,
       onError: (context) =>
@@ -97,6 +102,49 @@ export function createApp(options: CreateAppOptions = {}): Hono {
   });
 
   return app;
+}
+
+async function requireHireAuthorization(
+  context: Context,
+  configuredToken: string | null,
+  next: () => Promise<void>,
+): Promise<Response | void> {
+  if (!isUsableHireToken(configuredToken)) {
+    return context.json(
+      {
+        error: {
+          code: 'mutation-auth-unavailable',
+          message: 'hire authorization is not configured',
+        },
+      },
+      503,
+    );
+  }
+
+  const authorization = context.req.header('authorization');
+  const prefix = 'Bearer ';
+  const presentedToken = authorization?.startsWith(prefix)
+    ? authorization.slice(prefix.length)
+    : null;
+  if (!presentedToken || !matchesToken(presentedToken, configuredToken)) {
+    return context.json(
+      { error: { code: 'unauthorized', message: 'hire authorization required' } },
+      401,
+      { 'www-authenticate': 'Bearer' },
+    );
+  }
+
+  await next();
+}
+
+function isUsableHireToken(token: string | null): token is string {
+  return token !== null && token.length >= 16 && token.length <= 512 && /^[\x21-\x7e]+$/u.test(token);
+}
+
+function matchesToken(presentedToken: string, configuredToken: string): boolean {
+  const presented = Buffer.from(presentedToken, 'utf8');
+  const configured = Buffer.from(configuredToken, 'utf8');
+  return presented.length === configured.length && timingSafeEqual(presented, configured);
 }
 
 function requireAgentRegistry(value: string): string {

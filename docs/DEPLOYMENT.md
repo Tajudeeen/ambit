@@ -49,6 +49,12 @@ rendering. It is not a secret.
 injected by the deployment platform and must not appear in image layers, Compose
 files, logs, or source control.
 
+`AMBIT_HIRE_TOKEN` is a runtime-only server-to-server credential. The API uses it
+to authorize hire mutations, while the web server uses the same value when it
+forwards a same-origin hire request. It must never be prefixed with
+`NEXT_PUBLIC_`, rendered into browser code, or logged. The API fails closed when
+the value is absent or does not meet its format and length requirements.
+
 ## Health and release checks
 
 The API exposes separate process and dependency checks:

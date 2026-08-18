@@ -32,11 +32,17 @@ export async function POST(
   const { agentRegistry } = await params;
 
   try {
+    const headers: Record<string, string> = {
+      accept: 'application/json',
+      'content-type': 'application/json',
+    };
+    const hireToken = process.env.AMBIT_HIRE_TOKEN;
+    if (hireToken) headers.authorization = `Bearer ${hireToken}`;
     const response = await fetch(
       `${marketplaceApiUrl()}/agents/${encodeURIComponent(agentRegistry)}/hire`,
       {
         method: 'POST',
-        headers: { accept: 'application/json', 'content-type': 'application/json' },
+        headers,
         body: JSON.stringify(body),
         cache: 'no-store',
       },
