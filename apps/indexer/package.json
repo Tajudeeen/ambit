@@ -13,6 +13,7 @@
   "dependencies": {
     "@ambit/config": "workspace:*",
     "@ambit/core": "workspace:*",
+    "@ambit/db": "workspace:*",
     "@ambit/erc8004": "workspace:*",
     "@ambit/endpoint": "workspace:*",
     "@ambit/reputation": "workspace:*",

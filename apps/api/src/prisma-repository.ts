@@ -27,6 +27,7 @@ const summarySelect = Prisma.validator<Prisma.AgentSelect>()({
   chainId: true,
   identityRegistry: true,
   owner: true,
+  agentWallet: true,
   name: true,
   description: true,
   image: true,
@@ -37,6 +38,9 @@ const summarySelect = Prisma.validator<Prisma.AgentSelect>()({
   supportedExecution: true,
   executionVerified: true,
   verifiedActivity: true,
+  activityTransactionCount: true,
+  activityObservedAtBlock: true,
+  activityObservedAt: true,
   trustScoreValue: true,
   trustConfidence: true,
   trustMethodologyVersion: true,
@@ -126,27 +130,26 @@ export function createPrismaMarketplaceRepository(client: PrismaClient): Marketp
         });
         if (!agent) throw new MarketplaceNotFoundError('agent not found');
 
-        if (input.clientRequestId) {
-          const existing = await client.executionRequest.findUnique({
-            where: { clientRequestId: input.clientRequestId },
-            ...executionArgs,
-          });
-          if (existing) {
-            if (!sameHire(existing, agent.id, input)) {
-              throw new MarketplaceConflictError('clientRequestId is already used');
-            }
-            return mapExecution(existing);
+        const existing = await client.executionRequest.findUnique({
+          where: { clientRequestId: input.clientRequestId },
+          ...executionArgs,
+        });
+        if (existing) {
+          if (!sameHire(existing, agent.id, input)) {
+            throw new MarketplaceConflictError('clientRequestId is already used');
           }
+          return mapExecution(existing);
         }
 
         const created = await client.executionRequest.create({
           data: {
             agentId: agent.id,
-            ...(input.clientRequestId ? { clientRequestId: input.clientRequestId } : {}),
+            clientRequestId: input.clientRequestId,
             requester: input.requester,
             destination: input.destination,
             ...(input.protocol ? { protocol: input.protocol } : {}),
             requestedValue: input.requestedValue,
+            requestStatus: 'activation-confirmed',
           },
           ...executionArgs,
         });
@@ -225,6 +228,7 @@ function agentWhere(query: AgentSearchQuery): Prisma.AgentWhereInput {
 function mapSummary(row: AgentSummaryRow): MarketplaceAgentSummary {
   const identityRegistry = requireAddress(row.identityRegistry, 'identity registry');
   const owner = requireAddress(row.owner, 'owner');
+  const agentWallet = row.agentWallet ? requireAddress(row.agentWallet, 'agent wallet') : null;
   const verificationTier = isVerificationTier(row.verificationTier)
     ? row.verificationTier
     : 'unverified';
@@ -237,6 +241,7 @@ function mapSummary(row: AgentSummaryRow): MarketplaceAgentSummary {
     chainId: row.chainId,
     identityRegistry,
     owner,
+    agentWallet,
     name: row.name,
     description: row.description,
     image: row.image,
@@ -304,6 +309,19 @@ function mapProfile(row: AgentProfileRow): MarketplaceAgentProfile {
       reliable: evidence.reliable,
       observedAt: evidence.observedAt.toISOString(),
     })),
+    walletActivity:
+      row.activityTransactionCount !== null &&
+      row.activityTransactionCount !== undefined &&
+      row.activityObservedAtBlock !== null &&
+      row.activityObservedAtBlock !== undefined &&
+      row.activityObservedAt !== null &&
+      row.activityObservedAt !== undefined
+        ? {
+            transactionCount: row.activityTransactionCount,
+            observedAtBlock: row.activityObservedAtBlock,
+            observedAt: row.activityObservedAt.toISOString(),
+          }
+        : null,
     policy: policy ? mapPolicy(policy) : null,
   };
 }

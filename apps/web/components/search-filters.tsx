@@ -24,7 +24,7 @@ export function SearchFilters({ values }: { values: AgentSearchInput }) {
           <span>Category</span>
           <select name="category" defaultValue={values.category ?? ''}>
             <option value="">All categories</option>
-            <option value="monitoring">Monitoring</option>
+            <option value="rebalancing">Rebalancing</option>
             <option value="grid-trading">Grid trading</option>
             <option value="health-factor">Health factor</option>
             <option value="yield">Yield</option>

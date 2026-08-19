@@ -44,7 +44,7 @@ ATTESTATION LAYER  (packages/contracts)       M4b
         |
         v
 MARKETPLACE API  (apps/api)                   M9
-  validated HTTP -> repository -> search/rank, profiles, pending hires, execution history
+  validated HTTP -> repository -> search/rank, profiles, activation requests, execution history
         |
         v
 MARKETPLACE WEB APP  (apps/web)               M10

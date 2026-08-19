@@ -137,14 +137,14 @@ endpoint, trust-score, and policy rows as invalid one-to-one relations.
 **Decision:** Build the Hono API against an injected `MarketplaceRepository` and
 provide a Prisma implementation for production. Route handlers validate HTTP
 inputs and return structured errors; repository code owns deterministic queries,
-latest-record selection, and durable pending hire requests. Historical relations
+latest-record selection, and durable wallet-authorized activation requests. Historical relations
 remain one-to-many. Hiring never accepts execution success or session secrets
 from clients.
 **Consequences:** API behavior is testable without a database, Prisma generation
 is unblocked, marketplace visibility remains opt-in filtered, and later UI or
 deployment work can replace transports without weakening the execution boundary.
 
-# ADR-0011: M10 renders live evidence and proxies only pending hires
+# ADR-0011: M10 renders live evidence and proxies wallet-authorized activations
 
 **Status:** Accepted (M10)
 **Context:** The marketplace UI must be useful with real indexed agents while
@@ -154,8 +154,8 @@ coupling for the one public mutation.
 **Decision:** Use Next.js App Router server components for marketplace and profile
 reads through a typed M9 client. Encode search/filter state in the URL, render
 explicit empty and unavailable states, and never fall back to sample agents. Route
-browser hire submissions through a same-origin Next handler that forwards only
-the M9 pending-hire fields and preserves structured errors.
+browser activation submissions through a same-origin Next handler that forwards only
+the M9 signed-activation fields and preserves structured errors.
 **Consequences:** Pages are shareable, crawlable, and testable without adding a
 client state framework. Deployments can move the API origin through configuration,
 and the UI cannot turn a pending request, relay hash, or missing evidence into a

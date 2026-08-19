@@ -42,9 +42,17 @@ describe('eventToAgent M2 enrichment', () => {
     const a = eventToAgent(
       ev,
       net,
-      JSON.stringify({ name: 'Bot', services: [{ name: 'm', endpoint: 'https://bot.example/api' }] }),
+      JSON.stringify({
+        name: 'Bot',
+        services: [{ name: 'm', endpoint: 'https://bot.example/api' }],
+      }),
       '2026-08-16T00:00:00Z',
-      { url: 'https://bot.example/api', status: 'up', latencyMs: 42, checkedAt: '2026-08-16T00:00:00Z' },
+      {
+        url: 'https://bot.example/api',
+        status: 'up',
+        latencyMs: 42,
+        checkedAt: '2026-08-16T00:00:00Z',
+      },
     );
     expect(a.endpoint?.status).toBe('up');
     expect(a.endpoint?.latencyMs).toBe(42);
@@ -54,9 +62,17 @@ describe('eventToAgent M2 enrichment', () => {
     const a = eventToAgent(
       ev,
       net,
-      JSON.stringify({ name: 'Bad', services: [{ name: 'm', endpoint: 'http://169.254.169.254/x' }] }),
+      JSON.stringify({
+        name: 'Bad',
+        services: [{ name: 'm', endpoint: 'http://169.254.169.254/x' }],
+      }),
       '2026-08-16T00:00:00Z',
-      { url: 'http://169.254.169.254/x', status: 'blocked', reason: 'blocked IP', checkedAt: '2026-08-16T00:00:00Z' },
+      {
+        url: 'http://169.254.169.254/x',
+        status: 'blocked',
+        reason: 'blocked IP',
+        checkedAt: '2026-08-16T00:00:00Z',
+      },
     );
     expect(a.endpoint?.status).toBe('down');
     expect(a.evidenceRefs.some((e) => e.source === 'endpoint-ssrf-blocked')).toBe(true);
@@ -66,9 +82,18 @@ describe('eventToAgent M2 enrichment', () => {
 describe('buildReputationMap', () => {
   it('groups normalized feedback by agent and attaches summary', () => {
     const fb: NewFeedbackEvent = {
-      agentId: 123n, clientAddress: '0xaaa', value: 50n, valueDecimals: 0,
-      tag1: null, tag2: null, endpoint: null, feedbackURI: null, feedbackHash: '0xh',
-      blockNumber: 42_000_000n, txHash: '0xt', logIndex: 0,
+      agentId: 123n,
+      clientAddress: '0xaaa',
+      value: 50n,
+      valueDecimals: 0,
+      tag1: null,
+      tag2: null,
+      endpoint: null,
+      feedbackURI: null,
+      feedbackHash: '0xh',
+      blockNumber: 42_000_000n,
+      txHash: '0xt',
+      logIndex: 0,
     };
     const m = buildReputationMap([fb, { ...fb, value: 70n }], '2026-08-16T00:00:00Z');
     const s = m.get('123');
@@ -84,8 +109,18 @@ function fakeClient(events: RegisteredEvent[], feedback: NewFeedbackEvent[]): Pu
     getBlockNumber: async () => 41_000_100n,
     getContractEvents: async (req: { eventName?: string }) =>
       req.eventName === 'NewFeedback'
-        ? feedback.map((e) => ({ args: e, blockNumber: e.blockNumber, transactionHash: e.txHash, logIndex: e.logIndex }))
-        : events.map((e) => ({ args: { agentId: e.agentId, agentURI: e.agentURI, owner: e.owner }, blockNumber: e.blockNumber, transactionHash: e.txHash, logIndex: e.logIndex })),
+        ? feedback.map((e) => ({
+            args: e,
+            blockNumber: e.blockNumber,
+            transactionHash: e.txHash,
+            logIndex: e.logIndex,
+          }))
+        : events.map((e) => ({
+            args: { agentId: e.agentId, agentURI: e.agentURI, owner: e.owner },
+            blockNumber: e.blockNumber,
+            transactionHash: e.txHash,
+            logIndex: e.logIndex,
+          })),
   } as unknown as PublicClient;
 }
 
@@ -95,8 +130,39 @@ vi.mock('@ambit/erc8004', async (importOriginal) => {
     ...mod,
     createBscClient: () =>
       fakeClient(
-        [{ agentId: 777n, agentURI: 'data:application/json,' + encodeURIComponent(JSON.stringify({ name: 'LiveBot', services: [{ name: 'monitoring', endpoint: 'https://live.bot' }] })), owner: '0x2222222222222222222222222222222222222222', blockNumber: 41_000_050n, txHash: '0xdeadbeef', logIndex: 0 }],
-        [{ agentId: 777n, clientAddress: '0xfeed', value: 80n, valueDecimals: 0, tag1: null, tag2: null, endpoint: null, feedbackURI: null, feedbackHash: '0xfb', blockNumber: 41_000_050n, txHash: '0xfbtx', logIndex: 0 }],
+        [
+          {
+            agentId: 777n,
+            agentURI:
+              'data:application/json,' +
+              encodeURIComponent(
+                JSON.stringify({
+                  name: 'LiveBot',
+                  services: [{ name: 'liquidity-rebalancing', endpoint: 'https://live.bot' }],
+                }),
+              ),
+            owner: '0x2222222222222222222222222222222222222222',
+            blockNumber: 41_000_050n,
+            txHash: '0xdeadbeef',
+            logIndex: 0,
+          },
+        ],
+        [
+          {
+            agentId: 777n,
+            clientAddress: '0xfeed',
+            value: 80n,
+            valueDecimals: 0,
+            tag1: null,
+            tag2: null,
+            endpoint: null,
+            feedbackURI: null,
+            feedbackHash: '0xfb',
+            blockNumber: 41_000_050n,
+            txHash: '0xfbtx',
+            logIndex: 0,
+          },
+        ],
       ),
   };
 });
@@ -110,11 +176,20 @@ describe('indexOnce M2 integration (hermetic)', () => {
       checkpoint: new MemoryCheckpointStore(),
       batchSize: 200,
       toBlock: 41_000_100,
-      probeImpl: async (url) => ({ url, status: 'up', latencyMs: 10, checkedAt: '2026-08-16T00:00:00Z' }),
+      probeImpl: async (url) => ({
+        url,
+        status: 'up',
+        latencyMs: 10,
+        checkedAt: '2026-08-16T00:00:00Z',
+      }),
       onAgent: (a) => emitted.push(a),
     });
     expect(agents).toBe(1);
-    const a = emitted[0] as { name: string; reputation: { feedbackCount: number } | null; endpoint: { status: string } | null };
+    const a = emitted[0] as {
+      name: string;
+      reputation: { feedbackCount: number } | null;
+      endpoint: { status: string } | null;
+    };
     expect(a.name).toBe('LiveBot');
     expect(a.reputation?.feedbackCount).toBe(1); // reputation ingested
     expect(a.endpoint?.status).toBe('up'); // endpoint probed (SSRF-safe)
@@ -122,8 +197,22 @@ describe('indexOnce M2 integration (hermetic)', () => {
 
   it('is idempotent on re-run', async () => {
     const store = new MemoryCheckpointStore();
-    const first = await indexOnce({ rpcUrl: 'http://fake', chainId: 56, checkpoint: store, batchSize: 200, toBlock: 41_000_100, probeImpl: async (u) => ({ url: u, status: 'up', checkedAt: '' }) });
-    const second = await indexOnce({ rpcUrl: 'http://fake', chainId: 56, checkpoint: store, batchSize: 200, toBlock: 41_000_100, probeImpl: async (u) => ({ url: u, status: 'up', checkedAt: '' }) });
+    const first = await indexOnce({
+      rpcUrl: 'http://fake',
+      chainId: 56,
+      checkpoint: store,
+      batchSize: 200,
+      toBlock: 41_000_100,
+      probeImpl: async (u) => ({ url: u, status: 'up', checkedAt: '' }),
+    });
+    const second = await indexOnce({
+      rpcUrl: 'http://fake',
+      chainId: 56,
+      checkpoint: store,
+      batchSize: 200,
+      toBlock: 41_000_100,
+      probeImpl: async (u) => ({ url: u, status: 'up', checkedAt: '' }),
+    });
     expect(first.agents).toBe(1);
     expect(second.agents).toBe(0);
   });

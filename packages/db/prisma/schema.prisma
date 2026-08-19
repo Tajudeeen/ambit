@@ -18,17 +18,21 @@ model Agent {
   chainId                 Int
   identityRegistry        String
   owner                   String
+  agentWallet             String?
   agentURI                String
   name                    String
   description             String
   image                   String?
-  category                String? // 'monitoring' | 'grid-trading' | 'health-factor' | 'yield' | null
+  category                String? // 'rebalancing' | 'grid-trading' | 'health-factor' | 'yield' | null
   capabilities            String[] // JSON-encoded array via app layer
   supportedProtocols      String[]
   verificationTier        String    @default("unverified")
   supportedExecution      Boolean   @default(false)
   executionVerified       Boolean   @default(false)
   verifiedActivity        Boolean   @default(false)
+  activityTransactionCount Int?
+  activityObservedAtBlock  Int?
+  activityObservedAt       DateTime?
   trustScoreValue         Int?
   trustConfidence         String    @default("none")
   trustConfidenceRank     Int       @default(0)
@@ -62,8 +66,10 @@ model AgentMetadata {
   data        String // JSON-encoded registration file
   source      String
   blockNumber Int?
-  txHash      String?
+  txHash      String
   timestamp   DateTime @default(now())
+
+  @@unique([agentId, source, txHash])
 }
 
 model AgentEndpoint {
@@ -92,10 +98,12 @@ model ReputationEvent {
   feedbackHash  String?
   blockNumber   Int
   txHash        String
+  logIndex      Int
   timestamp     DateTime @default(now())
 
   @@index([agentId])
   @@index([clientAddress])
+  @@unique([txHash, logIndex])
 }
 
 model ActivityEvent {

@@ -16,7 +16,7 @@ function metadata(overrides: Partial<CategoryMetadataInput> = {}): CategoryMetad
 
 describe('M11 category classifier', () => {
   it.each([
-    ['monitoring', metadata({ services: [{ name: 'endpoint-monitoring' }] })],
+    ['rebalancing', metadata({ services: [{ name: 'liquidity-rebalancing' }] })],
     ['grid-trading', metadata({ services: [{ name: 'trader', skills: ['grid-trading'] }] })],
     [
       'health-factor',
@@ -53,14 +53,14 @@ describe('M11 category classifier', () => {
 
   it('leaves multi-category structured metadata uncategorized', () => {
     const result = classifyAgentCategory(
-      metadata({ services: [{ name: 'monitoring' }, { name: 'yield-optimizer' }] }),
+      metadata({ services: [{ name: 'liquidity-rebalancing' }, { name: 'yield-optimizer' }] }),
     );
 
     expect(result).toMatchObject({
       category: null,
       status: 'ambiguous',
       source: 'structured',
-      matchedCategories: ['monitoring', 'yield'],
+      matchedCategories: ['rebalancing', 'yield'],
     });
   });
 

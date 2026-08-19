@@ -7,6 +7,7 @@ const REGISTRY_ADDRESS = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const OWNER = '0x1111111111111111111111111111111111111111';
 const REQUESTER = '0x2222222222222222222222222222222222222222';
 const DESTINATION = '0x3333333333333333333333333333333333333333';
+const SIGNATURE = `0x${'11'.repeat(65)}`;
 const AGENT_REGISTRY = `eip155:56:${REGISTRY_ADDRESS}:7`;
 const NOW = new Date('2026-08-17T12:00:00.000Z');
 
@@ -18,6 +19,7 @@ function agentRow(overrides: Record<string, unknown> = {}) {
     chainId: 56,
     identityRegistry: REGISTRY_ADDRESS,
     owner: OWNER,
+    agentWallet: null,
     agentURI: 'ipfs://agent',
     name: 'Venus Sentinel',
     description: 'Monitors health factors.',
@@ -63,7 +65,7 @@ function executionRow(overrides: Record<string, unknown> = {}) {
     calldata: '0xdeadbeef',
     protocol: 'venus',
     requestedValue: '0',
-    requestStatus: 'pending-authorization',
+    requestStatus: 'activation-confirmed',
     policyResult: 'pending',
     riskResult: null,
     simulationResult: null,
@@ -247,7 +249,7 @@ describe('Prisma marketplace repository', () => {
     });
   });
 
-  it('creates a pending hire with server-owned decision state', async () => {
+  it('creates an activation-confirmed hire with server-owned decision state', async () => {
     const db = prismaDouble();
     db.agentFindUnique.mockResolvedValue({ id: 'agent_1', agentRegistry: AGENT_REGISTRY });
     db.executionFindUnique.mockResolvedValue(null);
@@ -260,6 +262,8 @@ describe('Prisma marketplace repository', () => {
       destination: DESTINATION,
       protocol: 'venus',
       requestedValue: '0',
+      expiresAt: 1_800_000_600,
+      signature: SIGNATURE,
     });
 
     expect(db.executionCreate).toHaveBeenCalledWith(
@@ -271,11 +275,12 @@ describe('Prisma marketplace repository', () => {
           destination: DESTINATION,
           protocol: 'venus',
           requestedValue: '0',
+          requestStatus: 'activation-confirmed',
         },
       }),
     );
     expect(result).toMatchObject({
-      requestStatus: 'pending-authorization',
+      requestStatus: 'activation-confirmed',
       policyResult: 'pending',
       approvalResult: 'pending',
     });
@@ -292,6 +297,8 @@ describe('Prisma marketplace repository', () => {
       destination: DESTINATION,
       protocol: 'venus',
       requestedValue: '0',
+      expiresAt: 1_800_000_600,
+      signature: SIGNATURE,
     } as const;
 
     await expect(repository.createHire(AGENT_REGISTRY, input)).resolves.toMatchObject({

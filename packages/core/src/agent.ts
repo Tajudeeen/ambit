@@ -6,7 +6,7 @@
  */
 
 /** The four reference categories mandated by the BNB hackathon brief. */
-export type AgentCategory = 'monitoring' | 'grid-trading' | 'health-factor' | 'yield';
+export type AgentCategory = 'rebalancing' | 'grid-trading' | 'health-factor' | 'yield';
 
 /**
  * Verification tier. THIS IS NOT A VISIBILITY GATE.

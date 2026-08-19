@@ -38,9 +38,24 @@ vi.mock('@ambit/erc8004', async (importOriginal) => {
   const mod = await importOriginal<typeof import('@ambit/erc8004')>();
   return {
     ...mod,
-    createBscClient: () => fakeClient([
-      { agentId: 777n, agentURI: 'data:application/json,' + encodeURIComponent(JSON.stringify({ name: 'LiveBot', services: [{ name: 'monitoring', endpoint: 'https://live.bot' }] })), owner: '0x2222222222222222222222222222222222222222', blockNumber: 41_000_050n, txHash: '0xdeadbeef', logIndex: 0 },
-    ]),
+    createBscClient: () =>
+      fakeClient([
+        {
+          agentId: 777n,
+          agentURI:
+            'data:application/json,' +
+            encodeURIComponent(
+              JSON.stringify({
+                name: 'LiveBot',
+                services: [{ name: 'liquidity-rebalancing', endpoint: 'https://live.bot' }],
+              }),
+            ),
+          owner: '0x2222222222222222222222222222222222222222',
+          blockNumber: 41_000_050n,
+          txHash: '0xdeadbeef',
+          logIndex: 0,
+        },
+      ]),
   };
 });
 
@@ -63,9 +78,23 @@ describe('indexOnce integration (hermetic, real event shape)', () => {
 
   it('is idempotent: same checkpoint range re-emits only new events', async () => {
     const store = new MemoryCheckpointStore();
-    const first = await indexOnce({ rpcUrl: 'http://fake', chainId: 56, checkpoint: store, batchSize: 200, toBlock: 41_000_100, probeImpl: async (u) => ({ url: u, status: 'up', checkedAt: '' }) });
+    const first = await indexOnce({
+      rpcUrl: 'http://fake',
+      chainId: 56,
+      checkpoint: store,
+      batchSize: 200,
+      toBlock: 41_000_100,
+      probeImpl: async (u) => ({ url: u, status: 'up', checkedAt: '' }),
+    });
     // Re-run should resume from checkpoint+1 -> 41_000_101 > toBlock(41_000_100) -> no scan
-    const second = await indexOnce({ rpcUrl: 'http://fake', chainId: 56, checkpoint: store, batchSize: 200, toBlock: 41_000_100, probeImpl: async (u) => ({ url: u, status: 'up', checkedAt: '' }) });
+    const second = await indexOnce({
+      rpcUrl: 'http://fake',
+      chainId: 56,
+      checkpoint: store,
+      batchSize: 200,
+      toBlock: 41_000_100,
+      probeImpl: async (u) => ({ url: u, status: 'up', checkedAt: '' }),
+    });
     expect(first.agents).toBe(1);
     expect(second.agents).toBe(0);
   });

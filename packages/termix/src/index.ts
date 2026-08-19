@@ -2,18 +2,21 @@ export const TERMIX_INTEGRATION_VERSION = 'v1.0.0' as const;
 export const TERMIX_PUBLIC_API_URL = 'https://termix-backend.dev.termix.click/api/v1' as const;
 
 export type TermixTaskOutcome = 'completed' | 'failed' | 'blocked';
+export type TermixTaskCategory = 'trading' | 'equities' | 'security' | 'other';
 
 export interface TermixTaskAttempt {
   outcome: TermixTaskOutcome;
   durationMs: number;
   costMicrousd: number;
   qualityBps: number;
+  output: string;
   evidenceRefs: readonly string[];
 }
 
 export interface TermixTaskPair {
   id: string;
   task: string;
+  category: TermixTaskCategory;
   withoutAgent: TermixTaskAttempt;
   withAgent: TermixTaskAttempt;
 }
@@ -21,6 +24,11 @@ export interface TermixTaskPair {
 export interface TermixTaskComparison {
   id: string;
   task: string;
+  category: TermixTaskCategory;
+  withoutAgentOutput: string;
+  withAgentOutput: string;
+  withoutAgentEvidenceRefs: readonly string[];
+  withAgentEvidenceRefs: readonly string[];
   completionDelta: -1 | 0 | 1;
   qualityDeltaBps: number;
   latencyImprovementBps: number;
@@ -75,6 +83,8 @@ export function createTermixAdvantageReport(input: unknown): TermixAdvantageRepo
     throw new TermixIntegrationError('invalid-report', 'at least three task pairs are required');
   }
 
+  const categories = new Set<TermixTaskCategory>();
+
   const ids = new Set<string>();
   const comparisons = input.cases.map((candidate) => {
     const pair = validateTaskPair(candidate);
@@ -82,8 +92,15 @@ export function createTermixAdvantageReport(input: unknown): TermixAdvantageRepo
       throw new TermixIntegrationError('invalid-report', `duplicate task case: ${pair.id}`);
     }
     ids.add(pair.id);
+    categories.add(pair.category);
     return compareTaskPair(pair);
   });
+  if (![...categories].some((category) => ['trading', 'equities', 'security'].includes(category))) {
+    throw new TermixIntegrationError(
+      'invalid-report',
+      'at least one trading, equities, or security task is required',
+    );
+  }
   const completedWithoutAgent = input.cases.filter(
     (candidate) => validateTaskPair(candidate).withoutAgent.outcome === 'completed',
   ).length;
@@ -179,9 +196,13 @@ function validateTaskPair(value: unknown): TermixTaskPair {
   if (!isRecord(value) || !isNonEmptyString(value.id) || !isNonEmptyString(value.task)) {
     throw new TermixIntegrationError('invalid-report', 'task case id and task are required');
   }
+  if (!['trading', 'equities', 'security', 'other'].includes(String(value.category))) {
+    throw new TermixIntegrationError('invalid-report', 'task category is invalid');
+  }
   return {
     id: value.id,
     task: value.task,
+    category: value.category as TermixTaskCategory,
     withoutAgent: validateAttempt(value.withoutAgent),
     withAgent: validateAttempt(value.withAgent),
   };
@@ -191,7 +212,12 @@ function validateAttempt(value: unknown): TermixTaskAttempt {
   if (!isRecord(value) || !['completed', 'failed', 'blocked'].includes(String(value.outcome))) {
     throw new TermixIntegrationError('invalid-report', 'task outcome is invalid');
   }
-  if (!isMetric(value.durationMs) || !isMetric(value.costMicrousd) || !isBps(value.qualityBps)) {
+  if (
+    !isMetric(value.durationMs) ||
+    !isMetric(value.costMicrousd) ||
+    !isBps(value.qualityBps) ||
+    !isNonEmptyString(value.output)
+  ) {
     throw new TermixIntegrationError('invalid-report', 'task metrics are invalid');
   }
   if (
@@ -209,6 +235,11 @@ function compareTaskPair(pair: TermixTaskPair): TermixTaskComparison {
   return {
     id: pair.id,
     task: pair.task,
+    category: pair.category,
+    withoutAgentOutput: pair.withoutAgent.output,
+    withAgentOutput: pair.withAgent.output,
+    withoutAgentEvidenceRefs: pair.withoutAgent.evidenceRefs,
+    withAgentEvidenceRefs: pair.withAgent.evidenceRefs,
     completionDelta: (completion(pair.withAgent) - completion(pair.withoutAgent)) as -1 | 0 | 1,
     qualityDeltaBps: pair.withAgent.qualityBps - pair.withoutAgent.qualityBps,
     latencyImprovementBps: improvement(pair.withoutAgent.durationMs, pair.withAgent.durationMs),

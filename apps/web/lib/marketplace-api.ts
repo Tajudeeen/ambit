@@ -1,4 +1,4 @@
-export type AgentCategory = 'monitoring' | 'grid-trading' | 'health-factor' | 'yield';
+export type AgentCategory = 'rebalancing' | 'grid-trading' | 'health-factor' | 'yield';
 export type VerificationTier = 'unverified' | 'data-verified' | 'execution-verified';
 export type Confidence = 'none' | 'low' | 'medium' | 'high';
 export type EndpointStatus = 'unknown' | 'up' | 'down' | 'degraded';
@@ -30,6 +30,7 @@ export interface MarketplaceAgentSummary {
   chainId: number;
   identityRegistry: string;
   owner: string;
+  agentWallet: string | null;
   name: string;
   description: string;
   image: string | null;
@@ -70,6 +71,11 @@ export interface MarketplaceAgentProfile extends MarketplaceAgentSummary {
     txHash: string;
     timestamp: string;
   }[];
+  walletActivity: {
+    transactionCount: number;
+    observedAtBlock: number;
+    observedAt: string;
+  } | null;
   payments: readonly {
     source: string;
     linkedTxHash: string | null;

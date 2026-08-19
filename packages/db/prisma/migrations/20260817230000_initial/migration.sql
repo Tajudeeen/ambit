@@ -9,6 +9,7 @@ CREATE TABLE "Agent" (
     "chainId" INTEGER NOT NULL,
     "identityRegistry" TEXT NOT NULL,
     "owner" TEXT NOT NULL,
+    "agentWallet" TEXT,
     "agentURI" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "description" TEXT NOT NULL,
@@ -20,6 +21,9 @@ CREATE TABLE "Agent" (
     "supportedExecution" BOOLEAN NOT NULL DEFAULT false,
     "executionVerified" BOOLEAN NOT NULL DEFAULT false,
     "verifiedActivity" BOOLEAN NOT NULL DEFAULT false,
+    "activityTransactionCount" INTEGER,
+    "activityObservedAtBlock" INTEGER,
+    "activityObservedAt" TIMESTAMP(3),
     "trustScoreValue" INTEGER,
     "trustConfidence" TEXT NOT NULL DEFAULT 'none',
     "trustConfidenceRank" INTEGER NOT NULL DEFAULT 0,
@@ -40,7 +44,7 @@ CREATE TABLE "AgentMetadata" (
     "data" TEXT NOT NULL,
     "source" TEXT NOT NULL,
     "blockNumber" INTEGER,
-    "txHash" TEXT,
+    "txHash" TEXT NOT NULL,
     "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "AgentMetadata_pkey" PRIMARY KEY ("id")
@@ -72,6 +76,7 @@ CREATE TABLE "ReputationEvent" (
     "feedbackHash" TEXT,
     "blockNumber" INTEGER NOT NULL,
     "txHash" TEXT NOT NULL,
+    "logIndex" INTEGER NOT NULL,
     "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ReputationEvent_pkey" PRIMARY KEY ("id")
@@ -206,6 +211,9 @@ CREATE INDEX "Agent_trustScoreValue_trustConfidenceRank_idx" ON "Agent"("trustSc
 CREATE INDEX "Agent_executionVerified_idx" ON "Agent"("executionVerified");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "AgentMetadata_agentId_source_txHash_key" ON "AgentMetadata"("agentId", "source", "txHash");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "AgentEndpoint_agentId_url_key" ON "AgentEndpoint"("agentId", "url");
 
 -- CreateIndex
@@ -213,6 +221,9 @@ CREATE INDEX "ReputationEvent_agentId_idx" ON "ReputationEvent"("agentId");
 
 -- CreateIndex
 CREATE INDEX "ReputationEvent_clientAddress_idx" ON "ReputationEvent"("clientAddress");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ReputationEvent_txHash_logIndex_key" ON "ReputationEvent"("txHash", "logIndex");
 
 -- CreateIndex
 CREATE INDEX "ActivityEvent_agentId_idx" ON "ActivityEvent"("agentId");

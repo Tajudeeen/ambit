@@ -1,5 +1,6 @@
 'use client';
 
+import { buildAgentActivationMessage } from '@ambit/core/activation';
 import { useState, type FormEvent } from 'react';
 import type { ExecutionHistoryItem } from '@/lib/marketplace-api';
 
@@ -7,6 +8,7 @@ interface HirePanelProps {
   agentRegistry: string;
   protocols: readonly string[];
   supportedExecution: boolean;
+  defaultDestination: string | null;
 }
 
 type HireState =
@@ -15,22 +17,31 @@ type HireState =
   | { kind: 'success'; request: ExecutionHistoryItem }
   | { kind: 'error'; message: string; issues: readonly string[] };
 
-export function HirePanel({ agentRegistry, protocols, supportedExecution }: HirePanelProps) {
+interface EthereumProvider {
+  request(input: { method: string; params?: readonly unknown[] }): Promise<unknown>;
+}
+
+export function HirePanel({
+  agentRegistry,
+  protocols,
+  supportedExecution,
+  defaultDestination,
+}: HirePanelProps) {
   const [requester, setRequester] = useState('');
   const [state, setState] = useState<HireState>({ kind: 'idle' });
 
+  function provider(): EthereumProvider | null {
+    return (window as Window & { ethereum?: EthereumProvider }).ethereum ?? null;
+  }
+
   async function connectWallet() {
-    const provider = (
-      window as Window & {
-        ethereum?: { request(input: { method: string }): Promise<unknown> };
-      }
-    ).ethereum;
-    if (!provider) {
+    const ethereum = provider();
+    if (!ethereum) {
       setState({ kind: 'error', message: 'No injected wallet was detected.', issues: [] });
       return;
     }
     try {
-      const accounts = await provider.request({ method: 'eth_requestAccounts' });
+      const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
       const account = Array.isArray(accounts)
         ? accounts.find((value) => typeof value === 'string')
         : null;
@@ -44,21 +55,43 @@ export function HirePanel({ agentRegistry, protocols, supportedExecution }: Hire
 
   async function submitHire(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const ethereum = provider();
+    if (!ethereum || !requester || !defaultDestination) {
+      setState({
+        kind: 'error',
+        message: 'Connect a wallet and select an agent with an activation target.',
+        issues: [],
+      });
+      return;
+    }
+
     setState({ kind: 'submitting' });
     const data = new FormData(event.currentTarget);
-    const payload = {
-      clientRequestId: crypto.randomUUID(),
-      requester: String(data.get('requester') ?? ''),
-      destination: String(data.get('destination') ?? ''),
-      protocol: String(data.get('protocol') ?? ''),
-      requestedValue: String(data.get('requestedValue') ?? ''),
+    const clientRequestId = crypto.randomUUID();
+    const protocol = String(data.get('protocol') ?? '').trim();
+    const requestedValue = String(data.get('requestedValue') ?? '0');
+    const expiresAt = Math.floor(Date.now() / 1000) + 10 * 60;
+    const activation = {
+      agentRegistry,
+      clientRequestId,
+      requester,
+      destination: defaultDestination,
+      ...(protocol ? { protocol } : {}),
+      requestedValue,
+      expiresAt,
     };
 
     try {
+      const signature = await ethereum.request({
+        method: 'personal_sign',
+        params: [utf8ToHex(buildAgentActivationMessage(activation)), requester],
+      });
+      if (typeof signature !== 'string') throw new Error('Wallet returned an invalid signature');
+
       const response = await fetch(`/api/agents/${encodeURIComponent(agentRegistry)}/hire`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...activation, signature }),
       });
       const body: unknown = await response.json();
       if (!response.ok) {
@@ -78,25 +111,31 @@ export function HirePanel({ agentRegistry, protocols, supportedExecution }: Hire
     } catch {
       setState({
         kind: 'error',
-        message: 'The hire request could not reach the marketplace.',
+        message: 'The activation was not signed or could not reach the marketplace.',
         issues: [],
       });
     }
   }
 
+  const canActivate = supportedExecution && Boolean(defaultDestination);
+
   return (
     <aside className="hire-panel" id="hire">
-      <p className="eyebrow eyebrow-accent">Bounded execution request</p>
-      <h2>Request this agent</h2>
+      <p className="eyebrow eyebrow-accent">Wallet-authorized activation</p>
+      <h2>Activate this agent</h2>
       <p>
-        This creates a pending authorization request. It does not approve policy, grant a session,
-        or claim successful execution.
+        Your wallet signs the exact agent, protocol, target, and value. Ambit verifies that
+        signature before recording the activation.
       </p>
 
       {!supportedExecution ? (
         <div className="notice notice-warning">
-          This agent has not advertised supported execution. You can inspect its evidence, but Ambit
-          will not imply that it can execute safely.
+          This agent has not advertised an active execution service and cannot be activated.
+        </div>
+      ) : null}
+      {supportedExecution && !defaultDestination ? (
+        <div className="notice notice-warning">
+          This agent has no registered wallet or policy-approved activation target.
         </div>
       ) : null}
 
@@ -104,39 +143,25 @@ export function HirePanel({ agentRegistry, protocols, supportedExecution }: Hire
         <label className="field">
           <span>Requester wallet</span>
           <div className="input-action">
-            <input
-              name="requester"
-              value={requester}
-              onChange={(event) => setRequester(event.target.value)}
-              placeholder="0x…"
-              required
-              pattern="0x[0-9a-fA-F]{40}"
-            />
+            <input value={requester} placeholder="Connect wallet" readOnly required />
             <button className="button button-compact" type="button" onClick={connectWallet}>
               Connect
             </button>
           </div>
         </label>
         <label className="field">
-          <span>Destination contract</span>
-          <input name="destination" placeholder="0x…" required pattern="0x[0-9a-fA-F]{40}" />
-        </label>
-        <label className="field">
-          <span>Protocol</span>
-          <input
-            name="protocol"
-            list="agent-protocols"
-            defaultValue={protocols[0] ?? ''}
-            placeholder="Optional protocol label"
-          />
-          <datalist id="agent-protocols">
+          <span>Service</span>
+          <select name="protocol" defaultValue={protocols[0] ?? ''}>
+            {protocols.length === 0 ? <option value="">General service</option> : null}
             {protocols.map((protocol) => (
-              <option value={protocol} key={protocol} />
+              <option value={protocol} key={protocol}>
+                {protocol}
+              </option>
             ))}
-          </datalist>
+          </select>
         </label>
         <label className="field">
-          <span>Requested native value (wei)</span>
+          <span>Maximum native value (wei)</span>
           <input
             name="requestedValue"
             defaultValue="0"
@@ -148,17 +173,18 @@ export function HirePanel({ agentRegistry, protocols, supportedExecution }: Hire
         <button
           className="button button-primary button-wide"
           type="submit"
-          disabled={state.kind === 'submitting' || !supportedExecution}
+          disabled={state.kind === 'submitting' || !canActivate || !requester}
         >
-          {state.kind === 'submitting' ? 'Creating request…' : 'Create pending request'}
+          {state.kind === 'submitting' ? 'Confirm in wallet...' : 'Activate agent'}
         </button>
       </form>
 
       <div className="hire-status" aria-live="polite">
         {state.kind === 'success' ? (
           <div className="notice notice-success">
-            <strong>Request created.</strong>
+            <strong>Agent activated.</strong>
             <span>Status: {state.request.requestStatus}</span>
+            <span>Execution remains subject to policy, simulation, and session limits.</span>
             <code>{state.request.id}</code>
           </div>
         ) : null}
@@ -175,13 +201,19 @@ export function HirePanel({ agentRegistry, protocols, supportedExecution }: Hire
   );
 }
 
+function utf8ToHex(value: string): `0x${string}` {
+  return `0x${[...new TextEncoder().encode(value)]
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
 function publicError(value: unknown): { message: string; issues: readonly string[] } {
   if (!isRecord(value) || !isRecord(value.error)) {
-    return { message: 'The hire request failed.', issues: [] };
+    return { message: 'The activation failed.', issues: [] };
   }
   return {
     message:
-      typeof value.error.message === 'string' ? value.error.message : 'The hire request failed.',
+      typeof value.error.message === 'string' ? value.error.message : 'The activation failed.',
     issues: Array.isArray(value.error.issues)
       ? value.error.issues.filter((issue): issue is string => typeof issue === 'string')
       : [],

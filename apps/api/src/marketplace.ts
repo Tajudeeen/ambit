@@ -5,10 +5,10 @@ import type {
   Evidence,
   VerificationTier,
 } from '@ambit/core';
-import { isAddress, type Address } from 'viem';
+import { isAddress, type Address, type Hex } from 'viem';
 
 const AGENT_CATEGORIES = new Set<AgentCategory>([
-  'monitoring',
+  'rebalancing',
   'grid-trading',
   'health-factor',
   'yield',
@@ -42,6 +42,7 @@ export interface MarketplaceAgentSummary {
   chainId: number;
   identityRegistry: Address;
   owner: Address;
+  agentWallet: Address | null;
   name: string;
   description: string;
   image: string | null;
@@ -106,6 +107,11 @@ export interface MarketplaceAgentProfile extends MarketplaceAgentSummary {
   } | null;
   reputation: readonly MarketplaceReputationEvent[];
   activity: readonly MarketplaceActivityEvent[];
+  walletActivity: {
+    transactionCount: number;
+    observedAtBlock: number;
+    observedAt: string;
+  } | null;
   payments: readonly MarketplacePaymentEvidence[];
   policy: MarketplacePolicy | null;
 }
@@ -153,11 +159,13 @@ export interface ExecutionListQuery {
 }
 
 export interface HireAgentInput {
-  clientRequestId?: string;
+  clientRequestId: string;
   requester: Address;
   destination: Address;
   protocol?: string;
   requestedValue: string;
+  expiresAt: number;
+  signature: Hex;
 }
 
 export interface PaginatedResult<T> {
@@ -263,15 +271,17 @@ export function parseExecutionListQuery(query: Record<string, string>): Executio
   return parsed;
 }
 
-export function parseHireAgentInput(value: unknown): HireAgentInput {
+export function parseHireAgentInput(
+  value: unknown,
+  nowSeconds = Math.floor(Date.now() / 1000),
+): HireAgentInput {
   const issues: string[] = [];
   if (!isRecord(value)) throw new RequestValidationError(['request body must be an object']);
 
   const clientRequestId = normalizedOptional(value.clientRequestId);
-  if (
-    clientRequestId &&
-    (clientRequestId.length > 128 || !/^[A-Za-z0-9._:-]+$/u.test(clientRequestId))
-  ) {
+  if (!clientRequestId) {
+    issues.push('clientRequestId is required');
+  } else if (clientRequestId.length > 128 || !/^[A-Za-z0-9._:-]+$/u.test(clientRequestId)) {
     issues.push('clientRequestId contains invalid characters or is too long');
   }
   if (!isNonZeroAddress(value.requester)) issues.push('requester must be a non-zero address');
@@ -282,14 +292,26 @@ export function parseHireAgentInput(value: unknown): HireAgentInput {
   if (!isCanonicalDecimal(value.requestedValue)) {
     issues.push('requestedValue must be a non-negative canonical decimal string');
   }
+  if (
+    !Number.isSafeInteger(value.expiresAt) ||
+    (value.expiresAt as number) <= nowSeconds ||
+    (value.expiresAt as number) > nowSeconds + 15 * 60
+  ) {
+    issues.push('expiresAt must be within the next 15 minutes');
+  }
+  if (typeof value.signature !== 'string' || !/^0x[0-9a-fA-F]{130}$/u.test(value.signature)) {
+    issues.push('signature must be a 65-byte hex value');
+  }
 
   if (issues.length > 0) throw new RequestValidationError(issues);
   return {
-    ...(clientRequestId ? { clientRequestId } : {}),
+    clientRequestId: clientRequestId!,
     requester: value.requester as Address,
     destination: value.destination as Address,
     ...(protocol ? { protocol } : {}),
     requestedValue: value.requestedValue as string,
+    expiresAt: value.expiresAt as number,
+    signature: value.signature as Hex,
   };
 }
 

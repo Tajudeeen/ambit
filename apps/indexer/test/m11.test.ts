@@ -40,7 +40,7 @@ describe('M11 indexer category provenance', () => {
       timestamp: observedAt,
       blockNumber: Number(event.blockNumber),
       txHash: event.txHash,
-      methodologyVersion: 'v1.0.0',
+      methodologyVersion: 'v2.0.0',
     });
   });
 
@@ -49,7 +49,7 @@ describe('M11 indexer category provenance', () => {
       event,
       network,
       registration([
-        { name: 'monitoring', endpoint: 'https://agent.example/monitor' },
+        { name: 'liquidity-rebalancing', endpoint: 'https://agent.example/monitor' },
         { name: 'yield-optimizer', endpoint: 'https://agent.example/yield' },
       ]),
       observedAt,
@@ -68,7 +68,7 @@ describe('M11 indexer category provenance', () => {
       network,
       JSON.stringify({
         name: 'Monitoring agent',
-        services: [{ name: 'monitoring', endpoint: 'https://agent.example' }],
+        services: [{ name: 'liquidity-rebalancing', endpoint: 'https://agent.example' }],
       }),
       observedAt,
       null,

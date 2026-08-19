@@ -9,11 +9,11 @@ export interface CategoryDefinition {
 
 export const CATEGORY_DIRECTORY: readonly CategoryDefinition[] = [
   {
-    id: 'monitoring',
-    code: 'MN',
-    label: 'Monitoring',
+    id: 'rebalancing',
+    code: 'RB',
+    label: 'Rebalancing',
     description:
-      'Track endpoints, wallets, events, and conditions with explicit freshness evidence.',
+      'Manage liquidity ranges and position allocation with explicit strategy and execution evidence.',
   },
   {
     id: 'grid-trading',

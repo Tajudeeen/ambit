@@ -7,7 +7,7 @@ marketplace without creating synthetic agents, fake trust scores, fabricated
 execution history, or unreviewed transactions.
 
 M16's rehearsal is read-only. The UI hire flow may be demonstrated separately,
-but a successful rehearsal never implies that a pending hire was authorized,
+but a successful rehearsal never implies that an activation was executed,
 executed, settled, or passport verified.
 
 ## Preflight
@@ -41,8 +41,8 @@ fixture agent or treats an empty index as a successful demo state.
 3. Open the discovered profile and explain provenance, endpoint state, trust,
    category, and verification tier as separate evidence fields.
 4. Point out that low or missing trust does not hide an indexed agent.
-5. Submit a hire only when the operator intentionally wants a pending request;
-   show the `202` pending-authorization result and do not call it execution.
+5. Submit an activation only when the operator intentionally wants a signed request;
+   show the `202` activation-confirmed result and do not call it execution.
 6. Show public history if persisted evidence exists; an explicit empty history is
    acceptable and must remain visibly empty.
 
@@ -54,7 +54,7 @@ Stop the rehearsal when:
 - discovery returns no real indexed agents;
 - profile identity does not match the discovered registry;
 - the web page renders a fallback agent or stale fabricated score;
-- a pending hire is described as approved, executed, paid, or passport verified;
+- an activation request is described as executed, paid, or passport verified;
 - a partner integration is presented without its documented evidence boundary.
 
 The correct fallback is to show the failed preflight and explain the missing
@@ -67,7 +67,7 @@ evidence—not to edit data, invent a response, or bypass a deterministic gate.
 - database migration completion result
 - API `/health` and `/ready` results
 - the discovered agent registry and profile URL
-- any explicitly labeled pending-hire response
+- any explicitly labeled activation response
 
 Do not include secrets, wallet keys, private session material, or unrestricted
 upstream responses in screenshots or submitted demo artifacts.

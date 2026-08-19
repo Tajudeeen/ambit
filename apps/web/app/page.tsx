@@ -144,7 +144,10 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
         <article>
           <span>03</span>
           <h3>Authorize narrowly</h3>
-          <p>Hiring starts a pending request. Deterministic controls decide what can execute.</p>
+          <p>
+            A wallet signature activates a bounded request. Deterministic controls decide what can
+            execute.
+          </p>
         </article>
       </section>
     </>

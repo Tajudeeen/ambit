@@ -3,7 +3,7 @@
 M11 implements the four reference marketplace categories as a deterministic,
 versioned classification layer over valid ERC-8004 registration metadata:
 
-- `monitoring`
+- `rebalancing`
 - `grid-trading`
 - `health-factor`
 - `yield`

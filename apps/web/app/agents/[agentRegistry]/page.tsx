@@ -91,8 +91,25 @@ export default async function AgentProfilePage({ params }: { params: PageParams 
         <DataPair label="Chain" value={`BNB Smart Chain · ${agent.chainId}`} />
         <DataPair label="Owner" value={formatAddress(agent.owner)} title={agent.owner} />
         <DataPair
+          label="Agent wallet"
+          value={agent.agentWallet ? formatAddress(agent.agentWallet) : 'Not registered'}
+          title={agent.agentWallet ?? undefined}
+        />
+        <DataPair
           label="Indexed block"
           value={agent.lastIndexedBlock?.toLocaleString() ?? 'Not recorded'}
+        />
+        <DataPair
+          label="Wallet activity"
+          value={
+            agent.walletActivity
+              ? `${agent.walletActivity.transactionCount.toLocaleString()} tx`
+              : 'Not observed'
+          }
+        />
+        <DataPair
+          label="Activity block"
+          value={agent.walletActivity?.observedAtBlock.toLocaleString() ?? 'Not recorded'}
         />
       </section>
 
@@ -108,6 +125,7 @@ export default async function AgentProfilePage({ params }: { params: PageParams 
             agentRegistry={agent.agentRegistry}
             protocols={agent.supportedProtocols}
             supportedExecution={agent.supportedExecution}
+            defaultDestination={agent.policy?.allowedTargets[0] ?? agent.agentWallet}
           />
           <RegistryPanel agent={agent} />
         </div>
@@ -164,7 +182,7 @@ function EvidenceOverview({ agent }: { agent: MarketplaceAgentProfile }) {
           </div>
         </div>
         <div>
-          <h3>Protocols</h3>
+          <h3>Declared protocols</h3>
           <div className="chip-list">
             {agent.supportedProtocols.map((protocol) => (
               <span className="chip" key={protocol}>

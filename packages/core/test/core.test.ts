@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { METHODOLOGY_VERSION, isMethodologyVersion } from '../src/version.js';
 import type { AgentCategory, VerificationTier, Confidence } from '../src/agent.js';
+import { buildAgentActivationMessage } from '../src/activation.js';
 
 describe('core/version', () => {
   it('exposes a semver-ish methodology version', () => {
@@ -17,8 +18,22 @@ describe('core/version', () => {
 
 describe('core domain types', () => {
   it('category union is closed over the four reference categories', () => {
-    const cats: AgentCategory[] = ['monitoring', 'grid-trading', 'health-factor', 'yield'];
+    const cats: AgentCategory[] = ['rebalancing', 'grid-trading', 'health-factor', 'yield'];
     expect(cats).toHaveLength(4);
+  });
+
+  it('builds a deterministic, bounded activation message', () => {
+    expect(
+      buildAgentActivationMessage({
+        agentRegistry: 'eip155:56:0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:7',
+        clientRequestId: 'request-1',
+        requester: '0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+        destination: '0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',
+        protocol: 'pancakeswap',
+        requestedValue: '0',
+        expiresAt: 1_800_000_000,
+      }),
+    ).toContain('Requester: 0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
   });
 
   it('verification tier does not gate visibility semantics', () => {

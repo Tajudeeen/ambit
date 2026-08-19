@@ -27,6 +27,8 @@ export async function POST(
         destination: input.destination,
         protocol: input.protocol,
         requestedValue: input.requestedValue,
+        expiresAt: input.expiresAt,
+        signature: input.signature,
       }
     : {};
   const { agentRegistry } = await params;

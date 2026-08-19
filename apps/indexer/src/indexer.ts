@@ -20,7 +20,9 @@ import { scoreAgent, withTrust } from '@ambit/trust-engine';
 import { verifyActivity, type ActivityClient } from '@ambit/activity';
 
 import { getConfig } from '@ambit/config';
-import { MemoryCheckpointStore, nextStartBlock, type CheckpointStore } from './checkpoint.js';
+import { prisma } from '@ambit/db';
+import { PrismaCheckpointStore, nextStartBlock, type CheckpointStore } from './checkpoint.js';
+import { persistIndexedAgent } from './persistence.js';
 
 export interface IndexerDeps {
   rpcUrl: string;
@@ -31,7 +33,12 @@ export interface IndexerDeps {
   /** Stop once we reach this block (default: current head). */
   toBlock?: number;
   /** Optional progress sink (used by tests + observability). */
-  onAgent?: (agent: Agent, ev: RegisteredEvent) => void;
+  onAgent?: (
+    agent: Agent,
+    ev: RegisteredEvent,
+    rawMetadataJson: string,
+    feedback: readonly NewFeedbackEvent[],
+  ) => void | Promise<void>;
   /** Optional sink for unresolved URIs (so we never silently drop data). */
   onUnresolved?: (ev: RegisteredEvent, reason: string) => void;
   fetchImpl?: typeof fetch;
@@ -66,6 +73,7 @@ export function eventToAgent(
   const name = reg?.name ?? raw?.name ?? `Agent ${ev.agentId}`;
   const description = reg?.description ?? raw?.description ?? '';
   const capabilities = (reg?.services ?? []).map((s) => s.name ?? '').filter(Boolean);
+  const supportedProtocols = reg ? detectSupportedProtocols(reg) : [];
   const categoryClassification = reg ? classifyAgentCategory(reg) : null;
   const epUrl = firstEndpoint(rawMetadataJson); // lenient: endpoint even if other fields invalid
 
@@ -132,6 +140,7 @@ export function eventToAgent(
     agentURI: ev.agentURI,
     name,
     description,
+    ...(reg?.image ? { image: reg.image } : {}),
     category: categoryClassification?.category ?? null,
     capabilities,
     endpoint,
@@ -141,8 +150,8 @@ export function eventToAgent(
     verifiedActivity: false,
     trust: null,
     verificationTier: 'unverified',
-    supportedExecution: false,
-    supportedProtocols: [],
+    supportedExecution: Boolean(reg?.active && agentWallet && reg.services.length > 0),
+    supportedProtocols,
     executionVerified: false,
     executionStats: {
       verifiedExecutions: 0,
@@ -155,6 +164,37 @@ export function eventToAgent(
     lastIndexedBlock: Number(ev.blockNumber),
     lastIndexedAt: resolvedAt,
   };
+}
+
+function detectSupportedProtocols(registration: {
+  x402Support: boolean;
+  services: Array<{ name: string; skills?: unknown[]; domains?: unknown[] }>;
+}): string[] {
+  const signals = registration.services
+    .flatMap((service) => [
+      service.name,
+      ...stringValues(service.skills),
+      ...stringValues(service.domains),
+    ])
+    .join(' ')
+    .toLowerCase();
+  const protocols = new Set<string>();
+  if (registration.x402Support) protocols.add('x402');
+  for (const [protocol, aliases] of Object.entries({
+    pancakeswap: ['pancakeswap', 'pancake swap', 'liquidity pool', 'lp range'],
+    venus: ['venus'],
+    aave: ['aave'],
+    lista: ['lista'],
+    altana: ['altana', 'session key'],
+    'erc-8183': ['erc-8183', 'erc8183', 'agent commerce'],
+  })) {
+    if (aliases.some((alias) => signals.includes(alias))) protocols.add(protocol);
+  }
+  return [...protocols].sort();
+}
+
+function stringValues(values: readonly unknown[] | undefined): string[] {
+  return values?.filter((value): value is string => typeof value === 'string') ?? [];
 }
 
 function safeParse(raw: string): unknown {
@@ -265,7 +305,12 @@ export async function indexOnce(deps: IndexerDeps): Promise<{ toBlock: number; a
           }
         }
         const scored = withTrust(agent, scoreAgent(agent));
-        deps.onAgent?.(scored, ev);
+        await deps.onAgent?.(
+          scored,
+          ev,
+          raw,
+          feedback.filter((item) => item.agentId === ev.agentId),
+        );
         count++;
       } catch (e) {
         deps.onUnresolved?.(ev, e instanceof Error ? e.message : String(e));
@@ -292,20 +337,22 @@ function firstEndpoint(raw: string): string | null {
   return null;
 }
 
-/** CLI entrypoint: run a single pass and exit (no DB write yet — M2 persists). */
+/** CLI entrypoint: run a single pass, persist indexed state, and exit. */
 export async function main(): Promise<void> {
   const cfg = getConfig();
-  const store = new MemoryCheckpointStore();
+  const store = new PrismaCheckpointStore(prisma);
   console.log(`[ambit-indexer] M2 — indexing BSC ERC-8004 (identity + metadata + reputation)`);
   const { toBlock, agents } = await indexOnce({
     rpcUrl: cfg.bsc.rpcUrl,
     chainId: cfg.bsc.chainId,
     checkpoint: store,
     batchSize: cfg.indexer.batchSize,
-    onAgent: (a) =>
+    onAgent: async (a, ev, rawMetadataJson, feedback) => {
+      await persistIndexedAgent(prisma, a, ev, { rawMetadataJson, feedbackEvents: feedback });
       console.log(
-        `  + ${a.agentRegistry} (${a.name}) ep=${a.endpoint?.status ?? 'none'} rep=${a.reputation?.feedbackCount ?? 0}`,
-      ),
+        `  + ${a.agentRegistry} (${a.name}) category=${a.category ?? 'uncategorized'} ep=${a.endpoint?.status ?? 'none'} rep=${a.reputation?.feedbackCount ?? 0}`,
+      );
+    },
     onUnresolved: (ev, reason) => console.warn(`  ! agentId ${ev.agentId} unresolved: ${reason}`),
   });
   console.log(

@@ -1,6 +1,6 @@
 import type { AgentCategory } from './agent.js';
 
-export const CATEGORY_CLASSIFIER_VERSION = 'v1.0.0' as const;
+export const CATEGORY_CLASSIFIER_VERSION = 'v2.0.0' as const;
 
 export interface CategoryMetadataInput {
   name: string;
@@ -22,14 +22,21 @@ export interface CategoryClassification {
 }
 
 const CATEGORY_ORDER: readonly AgentCategory[] = [
-  'monitoring',
+  'rebalancing',
   'grid-trading',
   'health-factor',
   'yield',
 ];
 
 const CATEGORY_ALIASES: Readonly<Record<AgentCategory, readonly string[]>> = {
-  monitoring: ['monitoring', 'alerting', 'observability', 'watcher', 'surveillance'],
+  rebalancing: [
+    'rebalancing',
+    'liquidity rebalancing',
+    'lp rebalancing',
+    'range rebalancing',
+    'range manager',
+    'liquidity manager',
+  ],
   'grid-trading': ['grid trading', 'grid trader', 'grid bot', 'range grid'],
   'health-factor': [
     'health factor',

@@ -40,7 +40,7 @@ describe('M10 marketplace web contracts', () => {
 
   it('exposes every M11 category as an explicit marketplace filter', () => {
     expect(CATEGORY_DIRECTORY.map((category) => category.id)).toEqual([
-      'monitoring',
+      'rebalancing',
       'grid-trading',
       'health-factor',
       'yield',
@@ -96,7 +96,7 @@ describe('M10 marketplace web contracts', () => {
     await expect(getAgent(AGENT_REGISTRY)).resolves.toBeNull();
   });
 
-  it('forwards only public pending-hire fields through the same-origin proxy', async () => {
+  it('forwards only public activation fields through the same-origin proxy', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({

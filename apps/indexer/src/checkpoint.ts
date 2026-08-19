@@ -7,6 +7,7 @@
  * interface — no change to the indexer loop.
  */
 import type { NetworkRegistries } from '@ambit/erc8004';
+import type { PrismaClient } from '@ambit/db';
 
 export interface CheckpointStore {
   get(chainId: number, contract: string): Promise<number | null>;
@@ -23,6 +24,26 @@ export class MemoryCheckpointStore implements CheckpointStore {
   }
   async save(chainId: number, contract: string, lastBlock: number): Promise<void> {
     this.map.set(this.key(chainId, contract), lastBlock);
+  }
+}
+
+export class PrismaCheckpointStore implements CheckpointStore {
+  constructor(private readonly client: PrismaClient) {}
+
+  async get(chainId: number, contract: string): Promise<number | null> {
+    const checkpoint = await this.client.indexerCheckpoint.findUnique({
+      where: { chainId_contract: { chainId, contract: contract.toLowerCase() } },
+      select: { lastBlock: true },
+    });
+    return checkpoint?.lastBlock ?? null;
+  }
+
+  async save(chainId: number, contract: string, lastBlock: number): Promise<void> {
+    await this.client.indexerCheckpoint.upsert({
+      where: { chainId_contract: { chainId, contract: contract.toLowerCase() } },
+      create: { chainId, contract: contract.toLowerCase(), lastBlock },
+      update: { lastBlock },
+    });
   }
 }
 

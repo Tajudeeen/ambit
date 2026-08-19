@@ -1,7 +1,7 @@
 # Marketplace Web App (M10)
 
 M10 turns the M9 marketplace API into a responsive reference application for
-discovering, evaluating, and requesting authorization from autonomous agents on
+discovering, evaluating, and wallet-authorizing activation requests for autonomous agents on
 BNB Smart Chain. The web app is a presentation layer: it does not recompute
 trust, infer execution success, or create synthetic fallback agents.
 
@@ -14,7 +14,7 @@ trust, infer execution success, or create synthetic fallback agents.
   policy limits, activity, reputation, payments, and public execution history.
 - `/api/agents/:agentRegistry/hire` is a same-origin Next.js route handler that
   validates the browser request shape by forwarding it to M9. It returns M9's
-  structured response without converting a pending request into a success claim.
+  structured response without converting an activation request into an execution claim.
 
 Unknown profiles use the framework not-found boundary. API failures remain
 visible and actionable rather than being replaced with fictional content.
@@ -27,9 +27,9 @@ caching so indexed evidence and execution state are not presented as indefinitel
 fresh. Search state is encoded in URL query parameters, keeping results shareable
 and preserving the M9 rule that filters are explicit.
 
-The browser sends hire requests only to the same-origin proxy. The proxy does not
+The browser sends signed activation requests only to the same-origin proxy. The proxy does not
 accept or add session keys, policy decisions, simulations, receipts, passports,
-or administrator credentials. M5-M8 remain the only path from a pending request
+or administrator credentials. M5-M8 remain the only path from an activation request
 to verified execution evidence.
 
 ## Trust and evidence presentation
@@ -43,7 +43,7 @@ to verified execution evidence.
 - Endpoint, indexing, provenance, policy, and history timestamps are displayed
   as evidence freshness signals.
 - Successful execution language appears only when persisted history contains an
-  M8 passport and verified receipt state. A created hire remains pending.
+  M8 passport and verified receipt state. A created activation remains unexecuted.
 
 ## Interaction and accessibility
 
@@ -52,9 +52,9 @@ styles, sufficient contrast, responsive layouts, and text labels alongside statu
 colors. Forms keep native validation where useful and render structured API errors
 in an announced status region.
 
-The hire panel may read an injected browser wallet account to prefill the requester
-address, but wallet access is optional and never authorizes execution by itself.
-The user must review and submit the pending request explicitly.
+The hire panel reads an injected browser wallet account and requires a personal-sign
+authorization bound to the exact agent, target, protocol, value, and expiry. That signature
+authorizes an activation request; it never proves execution or grants unlimited authority.
 
 ## Failure behavior
 

@@ -1,6 +1,8 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { buildAgentActivationMessage } from '@ambit/core';
 import { prisma } from '@ambit/db';
 import { Hono, type Context } from 'hono';
+import { isAddressEqual, recoverMessageAddress } from 'viem';
 import { bodyLimit } from 'hono/body-limit';
 import { secureHeaders } from 'hono/secure-headers';
 import {
@@ -157,6 +159,7 @@ export function createApp(options: CreateAppOptions = {}): Hono {
         throw new RequestValidationError(['request body must be valid JSON']);
       }
       const input = parseHireAgentInput(body);
+      await verifyActivationSignature(agentRegistry, input);
       const request = await repository.createHire(agentRegistry, input);
       return context.json({ request }, 202);
     },
@@ -170,6 +173,29 @@ export function createApp(options: CreateAppOptions = {}): Hono {
   });
 
   return app;
+}
+
+async function verifyActivationSignature(
+  agentRegistry: string,
+  input: ReturnType<typeof parseHireAgentInput>,
+): Promise<void> {
+  try {
+    const recovered = await recoverMessageAddress({
+      message: buildAgentActivationMessage({
+        agentRegistry,
+        clientRequestId: input.clientRequestId,
+        requester: input.requester,
+        destination: input.destination,
+        ...(input.protocol ? { protocol: input.protocol } : {}),
+        requestedValue: input.requestedValue,
+        expiresAt: input.expiresAt,
+      }),
+      signature: input.signature,
+    });
+    if (!isAddressEqual(recovered, input.requester)) throw new Error('signer mismatch');
+  } catch {
+    throw new RequestValidationError(['signature does not authorize this activation request']);
+  }
 }
 
 export function logOperationalEvent(event: OperationalEvent): void {
@@ -228,7 +254,9 @@ async function requireHireAuthorization(
 }
 
 function isUsableHireToken(token: string | null): token is string {
-  return token !== null && token.length >= 16 && token.length <= 512 && /^[\x21-\x7e]+$/u.test(token);
+  return (
+    token !== null && token.length >= 16 && token.length <= 512 && /^[\x21-\x7e]+$/u.test(token)
+  );
 }
 
 function matchesToken(presentedToken: string, configuredToken: string): boolean {

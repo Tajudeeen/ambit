@@ -11,6 +11,7 @@ const attempt = (overrides: Record<string, unknown> = {}) => ({
   durationMs: 1000,
   costMicrousd: 100,
   qualityBps: 7000,
+  output: 'recorded task output',
   evidenceRefs: ['trace:case'],
   ...overrides,
 });
@@ -18,6 +19,7 @@ const attempt = (overrides: Record<string, unknown> = {}) => ({
 const cases = Array.from({ length: 3 }, (_, index) => ({
   id: `case-${index + 1}`,
   task: `Task ${index + 1}`,
+  category: index === 0 ? 'trading' : 'other',
   withoutAgent: attempt({ outcome: 'failed', durationMs: 2000, costMicrousd: 200 }),
   withAgent: attempt({ durationMs: 1000, costMicrousd: 100, qualityBps: 8000 }),
 }));

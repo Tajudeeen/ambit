@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildAgentActivationMessage } from '@ambit/core';
+import { privateKeyToAccount } from 'viem/accounts';
 import { createApp } from '../src/index.js';
 import {
   MarketplaceConflictError,
@@ -11,7 +13,8 @@ import {
 
 const REGISTRY_ADDRESS = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const OWNER = '0x1111111111111111111111111111111111111111';
-const REQUESTER = '0x2222222222222222222222222222222222222222';
+const TEST_PRIVATE_KEY = '0x0123456789012345678901234567890123456789012345678901234567890123';
+const REQUESTER = privateKeyToAccount(TEST_PRIVATE_KEY).address;
 const DESTINATION = '0x3333333333333333333333333333333333333333';
 const AGENT_REGISTRY = `eip155:56:${REGISTRY_ADDRESS}:7`;
 const HIRE_TOKEN = 'test-hire-token-123456';
@@ -24,7 +27,7 @@ const execution: ExecutionHistoryItem = {
   destination: DESTINATION,
   protocol: 'venus',
   requestedValue: '0',
-  requestStatus: 'pending-authorization',
+  requestStatus: 'activation-confirmed',
   policyResult: 'pending',
   riskResult: null,
   simulationResult: null,
@@ -48,6 +51,7 @@ const profile: MarketplaceAgentProfile = {
   chainId: 56,
   identityRegistry: REGISTRY_ADDRESS,
   owner: OWNER,
+  agentWallet: null,
   agentURI: 'ipfs://agent',
   name: 'Venus Sentinel',
   description: 'Monitors health factors.',
@@ -66,6 +70,7 @@ const profile: MarketplaceAgentProfile = {
   metadata: null,
   reputation: [],
   activity: [],
+  walletActivity: null,
   payments: [],
   policy: null,
 };
@@ -82,6 +87,24 @@ function repositoryDouble() {
       .fn<MarketplaceRepository['listExecutions']>()
       .mockResolvedValue({ items: [execution], nextCursor: null }),
   } satisfies MarketplaceRepository;
+}
+
+async function signedHire(overrides: Record<string, unknown> = {}) {
+  const account = privateKeyToAccount(TEST_PRIVATE_KEY);
+  const activation = {
+    agentRegistry: AGENT_REGISTRY,
+    clientRequestId: 'client-1',
+    requester: REQUESTER,
+    destination: DESTINATION,
+    protocol: 'venus',
+    requestedValue: '0',
+    expiresAt: Math.floor(Date.now() / 1000) + 600,
+    ...overrides,
+  };
+  return {
+    ...activation,
+    signature: await account.signMessage({ message: buildAgentActivationMessage(activation) }),
+  };
 }
 
 describe('marketplace API', () => {
@@ -177,25 +200,22 @@ describe('marketplace API', () => {
     });
   });
 
-  it('creates only a pending hire request and returns 202', async () => {
-    const response = await createApp({ repository, hireToken: HIRE_TOKEN }).request(`/agents/${AGENT_REGISTRY}/hire`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${HIRE_TOKEN}` },
-      body: JSON.stringify({
-        clientRequestId: 'client-1',
-        requester: REQUESTER,
-        destination: DESTINATION,
-        protocol: 'venus',
-        requestedValue: '0',
-      }),
-    });
+  it('creates a wallet-authorized activation request and returns 202', async () => {
+    const payload = await signedHire();
+    const response = await createApp({ repository, hireToken: HIRE_TOKEN }).request(
+      `/agents/${AGENT_REGISTRY}/hire`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${HIRE_TOKEN}` },
+        body: JSON.stringify({
+          ...payload,
+        }),
+      },
+    );
     expect(response.status).toBe(202);
+    const { agentRegistry: _agentRegistry, ...requestInput } = payload;
     expect(repository.createHire).toHaveBeenCalledWith(AGENT_REGISTRY, {
-      clientRequestId: 'client-1',
-      requester: REQUESTER,
-      destination: DESTINATION,
-      protocol: 'venus',
-      requestedValue: '0',
+      ...requestInput,
     });
     expect(await response.json()).toEqual({ request: execution });
   });
@@ -214,18 +234,40 @@ describe('marketplace API', () => {
         'clientRequestId contains invalid characters or is too long',
         'requester must be a non-zero address',
         'requestedValue must be a non-negative canonical decimal string',
+        'expiresAt must be within the next 15 minutes',
+        'signature must be a 65-byte hex value',
       ],
     ],
   ])('rejects %s for hire requests', async (_label, body, issues) => {
-    const response = await createApp({ repository, hireToken: HIRE_TOKEN }).request(`/agents/${AGENT_REGISTRY}/hire`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${HIRE_TOKEN}` },
-      body,
-    });
+    const response = await createApp({ repository, hireToken: HIRE_TOKEN }).request(
+      `/agents/${AGENT_REGISTRY}/hire`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${HIRE_TOKEN}` },
+        body,
+      },
+    );
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({
       error: { code: 'invalid-request', message: issues.join('; '), issues },
     });
+    expect(repository.createHire).not.toHaveBeenCalled();
+  });
+
+  it('rejects a signature from a different requester', async () => {
+    const payload = await signedHire();
+    const response = await createApp({ repository, hireToken: HIRE_TOKEN }).request(
+      `/agents/${AGENT_REGISTRY}/hire`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${HIRE_TOKEN}` },
+        body: JSON.stringify({ ...payload, requester: DESTINATION }),
+      },
+    );
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.issues).toContain(
+      'signature does not authorize this activation request',
+    );
     expect(repository.createHire).not.toHaveBeenCalled();
   });
 
@@ -234,10 +276,7 @@ describe('marketplace API', () => {
       method: 'POST' as const,
       headers: { 'content-type': 'application/json', authorization: `Bearer ${HIRE_TOKEN}` },
       body: JSON.stringify({
-        clientRequestId: 'client-1',
-        requester: REQUESTER,
-        destination: DESTINATION,
-        requestedValue: '0',
+        ...(await signedHire({ protocol: undefined })),
       }),
     };
     repository.createHire.mockRejectedValueOnce(

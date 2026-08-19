@@ -72,6 +72,9 @@ importers:
       '@ambit/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@ambit/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@ambit/endpoint':
         specifier: workspace:*
         version: link:../../packages/endpoint
@@ -100,6 +103,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@ambit/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       next:
         specifier: ^15.1.0
         version: 15.5.23(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

@@ -41,8 +41,8 @@ than silently changing query semantics.
 
 ## Hiring boundary
 
-Hiring creates a durable request in `pending-authorization` state. The request
-contains the agent, requester, destination, protocol, and requested native value.
+Hiring creates a durable request in `activation-confirmed` state after the requester signs the exact
+message containing the agent, requester, destination, protocol, and requested native value.
 It does not accept an Altana session, private key, fabricated policy result, or
 client-asserted successful outcome.
 
