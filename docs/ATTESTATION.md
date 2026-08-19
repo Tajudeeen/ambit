@@ -56,3 +56,17 @@ The Solidity source is compiled with Solidity 0.8.36 and an explicit `cancun`
 EVM target. TypeScript tooling mirrors the contract hashing algorithm through
 `viem`, and compiler-backed tests compare the exported ABI with the Solidity
 output.
+
+## Verified testnet deployment
+
+The first public deployment of `AmbitScoreAttestation` is confirmed on BNB
+Smart Chain Testnet (chain ID 97):
+
+- Contract: [`0xacc188c511d2230ae0ef6e17e9c6bc54da3fe0ae`](https://testnet.bscscan.com/address/0xacc188c511d2230ae0ef6e17e9c6bc54da3fe0ae)
+- Deployment transaction: [`0xf7377900229dd945c34cddf9a7b585fb00e9f74739855f7987a50bc740ab47af`](https://testnet.bscscan.com/tx/0xf7377900229dd945c34cddf9a7b585fb00e9f74739855f7987a50bc740ab47af)
+- Deployment block: `125979676`
+- Immutable publisher/deployer: `0x541291139b59570D1CD5D0E64df217b3F6efd7c8`
+
+The same metadata is exported from `@ambit/contracts` as
+`AMBIT_SCORE_ATTESTATION_BSC_TESTNET`. Keys and RPC credentials remain
+operator-supplied runtime secrets and are never committed.
