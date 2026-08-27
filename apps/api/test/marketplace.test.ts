@@ -27,6 +27,8 @@ const execution: ExecutionHistoryItem = {
   destination: DESTINATION,
   protocol: 'venus',
   requestedValue: '0',
+  authorizationExpiresAt: '2026-08-17T12:10:00.000Z',
+  authorizationVerified: true,
   requestStatus: 'activation-confirmed',
   policyResult: 'pending',
   riskResult: null,
@@ -216,7 +218,7 @@ describe('marketplace API', () => {
     const { agentRegistry: _agentRegistry, ...requestInput } = payload;
     expect(repository.createHire).toHaveBeenCalledWith(AGENT_REGISTRY, {
       ...requestInput,
-    });
+    }, expect.objectContaining({ signer: REQUESTER, verifiedAt: expect.any(Date) }));
     expect(await response.json()).toEqual({ request: execution });
   });
 

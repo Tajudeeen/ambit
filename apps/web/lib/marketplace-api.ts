@@ -104,6 +104,8 @@ export interface ExecutionHistoryItem {
   destination: string;
   protocol: string | null;
   requestedValue: string;
+  authorizationExpiresAt: string | null;
+  authorizationVerified: boolean;
   requestStatus: string;
   policyResult: string;
   riskResult: string | null;

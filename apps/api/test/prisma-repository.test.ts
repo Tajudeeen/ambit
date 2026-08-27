@@ -10,6 +10,7 @@ const DESTINATION = '0x3333333333333333333333333333333333333333';
 const SIGNATURE = `0x${'11'.repeat(65)}`;
 const AGENT_REGISTRY = `eip155:56:${REGISTRY_ADDRESS}:7`;
 const NOW = new Date('2026-08-17T12:00:00.000Z');
+const AUTHORIZATION = { signer: REQUESTER, verifiedAt: NOW } as const;
 
 function agentRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -65,6 +66,9 @@ function executionRow(overrides: Record<string, unknown> = {}) {
     calldata: '0xdeadbeef',
     protocol: 'venus',
     requestedValue: '0',
+    authorizationSignature: SIGNATURE,
+    authorizationVerifiedAt: NOW,
+    authorizationExpiresAt: new Date(1_800_000_600 * 1000),
     requestStatus: 'activation-confirmed',
     policyResult: 'pending',
     riskResult: null,
@@ -251,7 +255,19 @@ describe('Prisma marketplace repository', () => {
 
   it('creates an activation-confirmed hire with server-owned decision state', async () => {
     const db = prismaDouble();
-    db.agentFindUnique.mockResolvedValue({ id: 'agent_1', agentRegistry: AGENT_REGISTRY });
+    db.agentFindUnique.mockResolvedValue({
+      id: 'agent_1',
+      agentRegistry: AGENT_REGISTRY,
+      supportedExecution: true,
+      policy: [
+        {
+          allowedProtocols: ['venus'],
+          allowedTargets: [DESTINATION],
+          maxTxValue: '100',
+          expiry: null,
+        },
+      ],
+    });
     db.executionFindUnique.mockResolvedValue(null);
     db.executionCreate.mockResolvedValue(executionRow());
     const repository = createPrismaMarketplaceRepository(db.client);
@@ -264,7 +280,7 @@ describe('Prisma marketplace repository', () => {
       requestedValue: '0',
       expiresAt: 1_800_000_600,
       signature: SIGNATURE,
-    });
+    }, AUTHORIZATION);
 
     expect(db.executionCreate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -275,6 +291,9 @@ describe('Prisma marketplace repository', () => {
           destination: DESTINATION,
           protocol: 'venus',
           requestedValue: '0',
+          authorizationSignature: SIGNATURE,
+          authorizationVerifiedAt: expect.any(Date),
+          authorizationExpiresAt: new Date(1_800_000_600 * 1000),
           requestStatus: 'activation-confirmed',
         },
       }),
@@ -288,7 +307,19 @@ describe('Prisma marketplace repository', () => {
 
   it('returns an idempotent hire and rejects conflicting request reuse', async () => {
     const db = prismaDouble();
-    db.agentFindUnique.mockResolvedValue({ id: 'agent_1', agentRegistry: AGENT_REGISTRY });
+    db.agentFindUnique.mockResolvedValue({
+      id: 'agent_1',
+      agentRegistry: AGENT_REGISTRY,
+      supportedExecution: true,
+      policy: [
+        {
+          allowedProtocols: ['venus'],
+          allowedTargets: [DESTINATION],
+          maxTxValue: '100',
+          expiry: null,
+        },
+      ],
+    });
     db.executionFindUnique.mockResolvedValue(executionRow());
     const repository = createPrismaMarketplaceRepository(db.client);
     const input = {
@@ -301,13 +332,13 @@ describe('Prisma marketplace repository', () => {
       signature: SIGNATURE,
     } as const;
 
-    await expect(repository.createHire(AGENT_REGISTRY, input)).resolves.toMatchObject({
+    await expect(repository.createHire(AGENT_REGISTRY, input, AUTHORIZATION)).resolves.toMatchObject({
       id: 'request_1',
     });
     expect(db.executionCreate).not.toHaveBeenCalled();
 
     db.executionFindUnique.mockResolvedValueOnce(executionRow({ requestedValue: '1' }));
-    await expect(repository.createHire(AGENT_REGISTRY, input)).rejects.toBeInstanceOf(
+    await expect(repository.createHire(AGENT_REGISTRY, input, AUTHORIZATION)).rejects.toBeInstanceOf(
       MarketplaceConflictError,
     );
   });
@@ -339,6 +370,106 @@ describe('Prisma marketplace repository', () => {
     expect(result.nextCursor).toBeTruthy();
     expect(result.items[0]).not.toHaveProperty('sessionId');
     expect(result.items[0]).not.toHaveProperty('calldata');
+  });
+
+  it('rejects an expired active policy before creating a hire', async () => {
+    const db = prismaDouble();
+    db.agentFindUnique.mockResolvedValue({
+      id: 'agent_1',
+      agentRegistry: AGENT_REGISTRY,
+      supportedExecution: true,
+      policy: [
+        {
+          allowedProtocols: ['venus'],
+          allowedTargets: [DESTINATION],
+          maxTxValue: '100',
+          expiry: new Date(NOW.getTime() - 1),
+        },
+      ],
+    });
+    const repository = createPrismaMarketplaceRepository(db.client);
+
+    await expect(
+      repository.createHire(
+        AGENT_REGISTRY,
+        {
+          clientRequestId: 'client-1',
+          requester: REQUESTER,
+          destination: DESTINATION,
+          protocol: 'venus',
+          requestedValue: '0',
+          expiresAt: 1_800_000_600,
+          signature: SIGNATURE,
+        },
+        AUTHORIZATION,
+      ),
+    ).rejects.toThrow('active agent policy has expired');
+    expect(db.executionCreate).not.toHaveBeenCalled();
+  });
+
+  it('rejects omitted protocols when the policy declares an allowlist', async () => {
+    const db = prismaDouble();
+    db.agentFindUnique.mockResolvedValue({
+      id: 'agent_1',
+      agentRegistry: AGENT_REGISTRY,
+      supportedExecution: true,
+      policy: [
+        {
+          allowedProtocols: ['venus'],
+          allowedTargets: [DESTINATION],
+          maxTxValue: '100',
+          expiry: null,
+        },
+      ],
+    });
+    const repository = createPrismaMarketplaceRepository(db.client);
+
+    await expect(
+      repository.createHire(
+        AGENT_REGISTRY,
+        {
+          clientRequestId: 'client-1',
+          requester: REQUESTER,
+          destination: DESTINATION,
+          requestedValue: '0',
+          expiresAt: 1_800_000_600,
+          signature: SIGNATURE,
+        },
+        AUTHORIZATION,
+      ),
+    ).rejects.toThrow('protocol is required');
+  });
+
+  it('does not treat a changed expiry or signature as the same idempotent hire', async () => {
+    const db = prismaDouble();
+    db.agentFindUnique.mockResolvedValue({
+      id: 'agent_1',
+      agentRegistry: AGENT_REGISTRY,
+      supportedExecution: true,
+      policy: [
+        {
+          allowedProtocols: ['venus'],
+          allowedTargets: [DESTINATION],
+          maxTxValue: '100',
+          expiry: null,
+        },
+      ],
+    });
+    db.executionFindUnique.mockResolvedValue(executionRow());
+    const repository = createPrismaMarketplaceRepository(db.client);
+    const input = {
+      clientRequestId: 'client-1',
+      requester: REQUESTER,
+      destination: DESTINATION,
+      protocol: 'venus',
+      requestedValue: '0',
+      expiresAt: 1_800_000_601,
+      signature: `0x${'22'.repeat(65)}` as const,
+    };
+
+    await expect(repository.createHire(AGENT_REGISTRY, input, AUTHORIZATION)).rejects.toBeInstanceOf(
+      MarketplaceConflictError,
+    );
   });
 
   it('checks database readiness without an RPC dependency', async () => {

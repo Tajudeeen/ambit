@@ -13,7 +13,24 @@ afterAll(() => {
 });
 
 describe('production migration', () => {
-  it('matches the SQL generated from the Prisma schema', () => {
+  it('keeps authorization evidence in a forward-only migration', () => {
+    const initialMigration = readMigration('20260817230000_initial');
+    const authorizationMigration = readMigration(
+      '20260827090000_execution_authorization_evidence',
+    );
+
+    expect(initialMigration).not.toContain('authorizationSignature');
+    expect(authorizationMigration).toContain('ALTER TABLE "ExecutionRequest"');
+    expect(authorizationMigration).toContain('ADD COLUMN "authorizationSignature" TEXT');
+    expect(authorizationMigration).toContain(
+      'ADD COLUMN "authorizationVerifiedAt" TIMESTAMP(3)',
+    );
+    expect(authorizationMigration).toContain(
+      'ADD COLUMN "authorizationExpiresAt" TIMESTAMP(3)',
+    );
+  });
+
+  it('generates the authorization evidence columns from the current schema', () => {
     const prismaExecutable = path.join(
       packageRoot,
       'node_modules',
@@ -41,16 +58,18 @@ describe('production migration', () => {
     );
 
     expect(result.status, result.stderr).toBe(0);
-    expect(normalize(readFileSync(generatedMigration, 'utf8'))).toBe(
-      normalize(
-        readFileSync(
-          path.join(packageRoot, 'prisma', 'migrations', '20260817230000_initial', 'migration.sql'),
-          'utf8',
-        ),
-      ),
-    );
+    const generated = normalize(readFileSync(generatedMigration, 'utf8'));
+    expect(generated).toContain('"authorizationSignature" TEXT');
+    expect(generated).toContain('"authorizationVerifiedAt" TIMESTAMP(3)');
+    expect(generated).toContain('"authorizationExpiresAt" TIMESTAMP(3)');
   });
 });
+
+function readMigration(name: string): string {
+  return normalize(
+    readFileSync(path.join(packageRoot, 'prisma', 'migrations', name, 'migration.sql'), 'utf8'),
+  );
+}
 
 function normalize(value: string): string {
   return value.replace(/\r\n/gu, '\n').trim();

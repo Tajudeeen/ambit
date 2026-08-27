@@ -171,6 +171,9 @@ model ExecutionRequest {
   calldata          String?
   protocol          String?
   requestedValue    String
+  authorizationSignature String?
+  authorizationVerifiedAt DateTime?
+  authorizationExpiresAt DateTime?
   requestStatus     String    @default("pending-authorization")
   policyResult      String    @default("pending") // pending | approved | rejected
   riskResult        String?

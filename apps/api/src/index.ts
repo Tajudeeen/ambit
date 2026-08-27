@@ -8,6 +8,7 @@ import { secureHeaders } from 'hono/secure-headers';
 import {
   MarketplaceConflictError,
   MarketplaceNotFoundError,
+  MarketplacePolicyError,
   MarketplaceUnavailableError,
   RequestValidationError,
   isAgentRegistry,
@@ -159,8 +160,8 @@ export function createApp(options: CreateAppOptions = {}): Hono {
         throw new RequestValidationError(['request body must be valid JSON']);
       }
       const input = parseHireAgentInput(body);
-      await verifyActivationSignature(agentRegistry, input);
-      const request = await repository.createHire(agentRegistry, input);
+      const authorization = await verifyActivationSignature(agentRegistry, input);
+      const request = await repository.createHire(agentRegistry, input, authorization);
       return context.json({ request }, 202);
     },
   );
@@ -178,7 +179,7 @@ export function createApp(options: CreateAppOptions = {}): Hono {
 async function verifyActivationSignature(
   agentRegistry: string,
   input: ReturnType<typeof parseHireAgentInput>,
-): Promise<void> {
+): Promise<{ signer: ReturnType<typeof parseHireAgentInput>['requester']; verifiedAt: Date }> {
   try {
     const recovered = await recoverMessageAddress({
       message: buildAgentActivationMessage({
@@ -193,6 +194,7 @@ async function verifyActivationSignature(
       signature: input.signature,
     });
     if (!isAddressEqual(recovered, input.requester)) throw new Error('signer mismatch');
+    return { signer: recovered, verifiedAt: new Date() };
   } catch {
     throw new RequestValidationError(['signature does not authorize this activation request']);
   }
@@ -289,6 +291,9 @@ function errorResponse(error: Error, context: Context): Response {
   }
   if (error instanceof MarketplaceConflictError) {
     return context.json({ error: { code: 'conflict', message: error.message } }, 409);
+  }
+  if (error instanceof MarketplacePolicyError) {
+    return context.json({ error: { code: 'policy-rejected', message: error.message } }, 403);
   }
   if (error instanceof MarketplaceUnavailableError) {
     return context.json({ error: { code: 'repository-unavailable', message: error.message } }, 503);

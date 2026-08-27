@@ -3,6 +3,7 @@ import { isAddress, type Address } from 'viem';
 import {
   MarketplaceConflictError,
   MarketplaceNotFoundError,
+  MarketplacePolicyError,
   MarketplaceUnavailableError,
   encodeCursor,
   isAgentCategory,
@@ -19,6 +20,7 @@ import {
   type MarketplaceRepository,
   type MarketplaceTrust,
   type PaginatedResult,
+  type VerifiedHireAuthorization,
 } from './marketplace.js';
 
 const summarySelect = Prisma.validator<Prisma.AgentSelect>()({
@@ -122,13 +124,29 @@ export function createPrismaMarketplaceRepository(client: PrismaClient): Marketp
       }
     },
 
-    async createHire(agentRegistry: string, input: HireAgentInput): Promise<ExecutionHistoryItem> {
+    async createHire(
+      agentRegistry: string,
+      input: HireAgentInput,
+      authorization: VerifiedHireAuthorization,
+    ): Promise<ExecutionHistoryItem> {
       try {
+        requireVerifiedAuthorization(input, authorization);
         const agent = await client.agent.findUnique({
           where: { agentRegistry },
-          select: { id: true, agentRegistry: true },
+          select: {
+            id: true,
+            agentRegistry: true,
+            supportedExecution: true,
+            policy: { orderBy: { createdAt: 'desc' }, take: 1 },
+          },
         });
         if (!agent) throw new MarketplaceNotFoundError('agent not found');
+        if (!agent.supportedExecution) {
+          throw new MarketplacePolicyError('agent does not advertise supported execution');
+        }
+        const policy = agent.policy[0];
+        if (!policy) throw new MarketplacePolicyError('agent has no active execution policy');
+        enforceActivationPolicy(policy, input, authorization.verifiedAt);
 
         const existing = await client.executionRequest.findUnique({
           where: { clientRequestId: input.clientRequestId },
@@ -149,6 +167,9 @@ export function createPrismaMarketplaceRepository(client: PrismaClient): Marketp
             destination: input.destination,
             ...(input.protocol ? { protocol: input.protocol } : {}),
             requestedValue: input.requestedValue,
+            authorizationSignature: input.signature,
+            authorizationVerifiedAt: authorization.verifiedAt,
+            authorizationExpiresAt: new Date(input.expiresAt * 1000),
             requestStatus: 'activation-confirmed',
           },
           ...executionArgs,
@@ -159,6 +180,7 @@ export function createPrismaMarketplaceRepository(client: PrismaClient): Marketp
           error instanceof MarketplaceNotFoundError ||
           error instanceof MarketplaceConflictError ||
           error instanceof MarketplaceUnavailableError
+          || error instanceof MarketplacePolicyError
         ) {
           throw error;
         }
@@ -378,6 +400,8 @@ function mapExecution(row: ExecutionRow): ExecutionHistoryItem {
     destination: requireAddress(row.destination, 'destination'),
     protocol: row.protocol,
     requestedValue: row.requestedValue,
+    authorizationExpiresAt: iso(row.authorizationExpiresAt),
+    authorizationVerified: row.authorizationVerifiedAt !== null,
     requestStatus: row.requestStatus,
     policyResult: row.policyResult,
     riskResult: row.riskResult,
@@ -403,8 +427,64 @@ function sameHire(row: ExecutionRow, agentId: string, input: HireAgentInput): bo
     row.requester?.toLowerCase() === input.requester.toLowerCase() &&
     row.destination.toLowerCase() === input.destination.toLowerCase() &&
     row.protocol === (input.protocol ?? null) &&
-    row.requestedValue === input.requestedValue
+    row.requestedValue === input.requestedValue &&
+    row.authorizationExpiresAt?.getTime() === input.expiresAt * 1000 &&
+    row.authorizationSignature === input.signature
   );
+}
+
+function enforceActivationPolicy(
+  policy: {
+    allowedProtocols: string[];
+    allowedTargets: string[];
+    maxTxValue: string | null;
+    expiry: Date | null;
+  },
+  input: HireAgentInput,
+  verifiedAt: Date,
+): void {
+  if (policy.expiry !== null && policy.expiry.getTime() <= verifiedAt.getTime()) {
+    throw new MarketplacePolicyError('active agent policy has expired');
+  }
+  if (
+    policy.allowedTargets.length === 0 ||
+    !policy.allowedTargets.some((target) => target.toLowerCase() === input.destination.toLowerCase())
+  ) {
+    throw new MarketplacePolicyError('destination is not allowed by the active agent policy');
+  }
+  if (policy.allowedProtocols.length > 0) {
+    if (!input.protocol || !policy.allowedProtocols.includes(input.protocol)) {
+      throw new MarketplacePolicyError(
+        'protocol is required and must be allowed by the active agent policy',
+      );
+    }
+  } else if (input.protocol) {
+    throw new MarketplacePolicyError('protocol is not allowed by the active agent policy');
+  }
+  if (policy.maxTxValue !== null) {
+    let max: bigint;
+    try {
+      max = BigInt(policy.maxTxValue);
+    } catch {
+      throw new MarketplacePolicyError('active agent policy has an invalid value limit');
+    }
+    if (BigInt(input.requestedValue) > max) {
+      throw new MarketplacePolicyError('requested value exceeds the active agent policy');
+    }
+  }
+}
+
+function requireVerifiedAuthorization(
+  input: HireAgentInput,
+  authorization: VerifiedHireAuthorization,
+): void {
+  if (
+    authorization.signer.toLowerCase() !== input.requester.toLowerCase() ||
+    !Number.isFinite(authorization.verifiedAt.getTime()) ||
+    authorization.verifiedAt.getTime() >= input.expiresAt * 1000
+  ) {
+    throw new MarketplacePolicyError('activation authorization is invalid or expired');
+  }
 }
 
 function parseEvidence(value: string): MarketplaceTrust['evidence'] {

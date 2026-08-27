@@ -124,6 +124,8 @@ export interface ExecutionHistoryItem {
   destination: Address;
   protocol: string | null;
   requestedValue: string;
+  authorizationExpiresAt: string | null;
+  authorizationVerified: boolean;
   requestStatus: string;
   policyResult: string;
   riskResult: string | null;
@@ -168,6 +170,11 @@ export interface HireAgentInput {
   signature: Hex;
 }
 
+export interface VerifiedHireAuthorization {
+  signer: Address;
+  verifiedAt: Date;
+}
+
 export interface PaginatedResult<T> {
   items: readonly T[];
   nextCursor: string | null;
@@ -177,7 +184,11 @@ export interface MarketplaceRepository {
   ready(): Promise<void>;
   listAgents(query: AgentSearchQuery): Promise<PaginatedResult<MarketplaceAgentSummary>>;
   getAgent(agentRegistry: string): Promise<MarketplaceAgentProfile | null>;
-  createHire(agentRegistry: string, input: HireAgentInput): Promise<ExecutionHistoryItem>;
+  createHire(
+    agentRegistry: string,
+    input: HireAgentInput,
+    authorization: VerifiedHireAuthorization,
+  ): Promise<ExecutionHistoryItem>;
   listExecutions(
     agentRegistry: string,
     query: ExecutionListQuery,
@@ -188,6 +199,13 @@ export class MarketplaceConflictError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'MarketplaceConflictError';
+  }
+}
+
+export class MarketplacePolicyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MarketplacePolicyError';
   }
 }
 

@@ -125,7 +125,7 @@ export default async function AgentProfilePage({ params }: { params: PageParams 
             agentRegistry={agent.agentRegistry}
             protocols={agent.supportedProtocols}
             supportedExecution={agent.supportedExecution}
-            defaultDestination={agent.policy?.allowedTargets[0] ?? agent.agentWallet}
+            defaultDestination={agent.policy?.allowedTargets[0] ?? null}
           />
           <RegistryPanel agent={agent} />
         </div>
@@ -460,6 +460,14 @@ function ExecutionHistory({
               <div>
                 <dt>Approval</dt>
                 <dd>{formatLabel(execution.approvalResult)}</dd>
+              </div>
+              <div>
+                <dt>Authorization</dt>
+                <dd>
+                  {execution.authorizationVerified
+                    ? `Verified${execution.authorizationExpiresAt ? ` until ${formatDate(execution.authorizationExpiresAt)}` : ''}`
+                    : 'Not verified'}
+                </dd>
               </div>
               <div>
                 <dt>Recorded</dt>
