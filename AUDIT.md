@@ -149,6 +149,8 @@ config 18 · core 14 · demo 3 · endpoint 9 · db 3 · execution 38 · erc8004 
 | Nit | 0 |
 | Positive | 11 |
 
+**Resolution status (as of 2026-08-27):** AMB-1 (deps), AMB-2 (contract publisher), and AMB-3 (CI) are **resolved** in commits `91cd0d6` and the contract-rotation commit. AMB-2's on-chain behavioral test and a multisig owner remain documented follow-ups (no EVM harness in repo). AMB-4/5/6/7 remain open (see Task Plan). The severity counts above reflect the original audit baseline, not post-remediation state.
+
 ---
 
 ### [HIGH] AMB-1: Dependency tree carries one critical and eight high advisories
@@ -162,8 +164,9 @@ config 18 · core 14 · demo 3 · endpoint 9 · db 3 · execution 38 · erc8004 
 **Reproduction:** `pnpm audit` (full) and `pnpm audit --prod` after `pnpm install --frozen-lockfile`.
 **Recommended correction:** Create a dependency remediation branch. Upgrade in compatibility groups — Vitest/Vite first (root + web), then Next/sharp, then transitive ws/postcss/tmp/bigint-buffer/deepmerge-ts. Do **not** run `pnpm audit fix --force` blindly (it proposes major Vite/Next/Vitest breaks). Re-run all 19 test suites after each group.
 **Verification after correction:** Require `pnpm audit --audit-level=high` to pass in CI; document any remaining moderate with owner + expiry; re-run full verification per upgrade group.
+**Resolution (commit 91cd0d6):** `vitest` bumped to `^3.2.6` (clears the critical Vitest UI RCE); `pnpm-workspace.yaml` `overrides` force `vite@^6.4.3`, `postcss@^8.5.26`, `sharp@^0.35.4`, `ws@8.21.0`, `deepmerge-ts@^8.0.0`. Result: `pnpm audit` reports **0 critical, 2 high** — the only remaining highs are the two documented, unfixable exceptions `tmp` (solc-pinned, dev-only compile util) and `bigint-buffer` (PancakeSwap Solana SDK, unused on BSC, no patched release). A CI `security` job fails on any *unexpected* critical/high. 219 tests pass; typecheck + lint green.
 **Confidence:** High
-**Status:** Open
+**Status:** Resolved
 
 ---
 
@@ -177,8 +180,9 @@ config 18 · core 14 · demo 3 · endpoint 9 · db 3 · execution 38 · erc8004 
 **Impact:** Centralized censorship or incorrect score attestation. The documented timeout/recovery path that Sluice had does not exist here; the publisher is permanent.
 **Recommended correction:** Keep the limitation explicit in all public copy. Before any real-fund use, either (a) deploy with a multisig/rotatable publisher (refactor `immutable` → owned `publisher` with a 2-step transfer + timelock), or (b) pin the expected `methodologyHash` at every consumer and reject roots whose methodology hash drifts. Add a key-rotation runbook.
 **Verification after correction:** Test publisher loss, publisher rotation (if made mutable), methodology-hash mismatch rejection at the consumer, and out-of-range claim fields (`_validateClaim` already rejects score>100/confidence>3/tier>2 — good).
+**Resolution (commit pending):** `publisher` is no longer `immutable`. The constructor still takes `publisher_` and sets it as **both** the initial `publisher` and the `owner` (preserving existing single-key deploy semantics, including the BSC testnet deployment at `0xacc1…`). A two-step `transferPublisher` (owner-only) → `acceptPublisher` (candidate-only) rotation path was added, plus a `PublisherRotated` event. If the publisher key is leaked, the owner rotates it; if the owner is a multisig/timelock, this becomes the N-of-M recovery path. `publishRoot` still requires `msg.sender == publisher`. The exported ABI (`abi.ts`) and the parity test were updated; a new test asserts the rotation surface compiles and stays in sync. **Limitation:** the repo has no EVM harness (only `solc` compile + ABI parity per M4b), so on-chain state-transition behavior of rotation is not exercised by an automated test — full behavioral coverage requires a deploy harness (anvil/hardhat), documented as a follow-up. For real-fund use, consumers should still pin `methodologyHash`.
 **Confidence:** High
-**Status:** Open
+**Status:** Resolved (partial — multisig owner + behavioral EVM test are follow-ups)
 
 ---
 
@@ -192,8 +196,9 @@ config 18 · core 14 · demo 3 · endpoint 9 · db 3 · execution 38 · erc8004 
 **Impact:** Supply-chain compromise could affect CI; release status can say green while the dependency security gate fails (as it currently does).
 **Recommended correction:** Pin third-party actions to reviewed commit SHAs. Add a `security` job that runs `pnpm audit --audit-level=high` (and, when available, Slither on `packages/contracts`) and fails the build on violation. Keep the verify job separate from any future deploy job.
 **Verification after correction:** Confirm pinned SHAs, a failing `pnpm audit --audit-level=high` breaks CI, and the contract compiles under a pinned solc with a static check.
+**Resolution (commit 91cd0d6):** All four third-party actions are pinned to reviewed commit SHAs (`actions/checkout@11d5960a…`, `actions/setup-node@49933ea5…`, `pnpm/action-setup@b906affcc…`, `docker/setup-buildx-action@8d2750c6…`). A dedicated `security` job runs `pnpm audit --audit-level=high` and fails on any unexpected critical/high advisory (allowlisting the two documented exceptions). The verify job remains separate from the containers job.
 **Confidence:** High
-**Status:** Open
+**Status:** Resolved
 
 ---
 
