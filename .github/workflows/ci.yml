@@ -41,6 +41,13 @@ jobs:
         run: |
           pnpm audit --audit-level=high --json > audit.json || true
           node -e "const j=require('./audit.json');const a=j.advisories||{};const bad=Object.keys(a).filter(k=>['critical','high'].includes(a[k].severity)&&!['tmp','bigint-buffer'].includes(a[k].module_name));if(bad.length){console.error('Unexpected high/critical advisories:',bad);process.exit(1);}console.log('Security gate passed: only documented exceptions remain.');"
+      - name: Contract static analysis gate (AMB-4)
+        # In-repo static invariants compiled with the pinned solc: no
+        # selfdestruct/delegatecall/external-call escape, rotatable (non-immutable)
+        # publisher, and the ABI-parity + Merkle verification surface. Slither is the
+        # recommended deeper gate (see AUDIT.md); this runs deterministically with no
+        # network install and records its output in the CI log.
+        run: pnpm --filter @ambit/contracts test --reporter=verbose
 
   containers:
     runs-on: ubuntu-latest

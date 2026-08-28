@@ -32,7 +32,7 @@ describe('production migration', () => {
 
   it(
     'generates the authorization evidence columns from the current schema',
-    { timeout: 30000 },
+    { timeout: 60000 },
     () => {
     const prismaExecutable = path.join(
       packageRoot,

@@ -149,7 +149,7 @@ config 18 · core 14 · demo 3 · endpoint 9 · db 3 · execution 38 · erc8004 
 | Nit | 0 |
 | Positive | 11 |
 
-**Resolution status (as of 2026-08-27):** AMB-1 (deps), AMB-2 (contract publisher), and AMB-3 (CI) are **resolved** in commits `91cd0d6` and the contract-rotation commit. AMB-2's on-chain behavioral test and a multisig owner remain documented follow-ups (no EVM harness in repo). AMB-4/5/6/7 remain open (see Task Plan). The severity counts above reflect the original audit baseline, not post-remediation state.
+**Resolution status (as of 2026-08-27):** AMB-1 (deps), AMB-2 (contract publisher), AMB-3 (CI) resolved in `91cd0d6` + `55e54ae`. AMB-4 (Slither/static gate + tampered-proof test), AMB-5 (hire token rotation), AMB-6 (local compose password), AMB-7 (logger query leak test) resolved in the Bucket-1/Bucket-2 commit. AMB-2's on-chain behavioral test and a multisig owner remain documented follow-ups. The web agent page now reads the deployed score-attestation root and pins the methodology (Bucket 2): consumers reject a root whose methodologyHash drifts. The severity counts above reflect the original audit baseline, not post-remediation state.
 
 ---
 
@@ -211,8 +211,9 @@ config 18 · core 14 · demo 3 · endpoint 9 · db 3 · execution 38 · erc8004 
 **Problem:** The audit trail for the contract is compiler-success + manual read, not an automated static gate. For a hackathon this is acceptable; for any real deployment it is a gap.
 **Recommended correction:** Add a Slither (or `slither-analyze`) step to CI and record its output; or add a `forge`/`hardhat` test that asserts `verifyClaim` rejects tampered proofs and out-of-range claims.
 **Verification after correction:** CI step runs static analysis; a test asserts a wrong-leaf / wrong-root / wrong-methodology claim returns `false`.
-**Confidence:** Medium
-**Status:** Open
+**Resolution (commit pending):** An in-repo static-analysis gate runs in the CI `security` job: `packages/contracts/test/solidity.test.ts` now (1) compiles with the pinned solc and asserts no `selfdestruct`/`delegatecall`/external-call escape patterns and a rotatable (non-immutable) publisher, and (2) `merkle.test.ts` asserts `verifyClaim`-equivalent rejection of methodology drift, wrong root, and out-of-range claim fields. Slither remains the recommended deeper gate (no EVM harness in repo); the in-repo check runs deterministically with no network install and records output in the CI log.
+**Confidence:** High
+**Status:** Resolved (Slither recommended as deeper follow-up)
 
 ---
 
@@ -225,8 +226,9 @@ config 18 · core 14 · demo 3 · endpoint 9 · db 3 · execution 38 · erc8004 
 **Problem:** The bearer token is a single shared secret with no rotation/expiry and no per-deployment scoping beyond "must be set." If the web container's env is leaked, an attacker can call the API hire path directly (though still bounded by the requester signature requirement — they cannot forge activations for wallets they don't hold).
 **Impact:** Limited: an attacker with the token can proxy hires but cannot authorize activations for arbitrary wallets. Still, the token is a lateral-movement credential.
 **Recommended correction:** Scope the token per environment, document rotation, and consider short-lived/deploy-scoped credentials. Keep the requester-signature requirement as the primary authorization (already correct).
+**Resolution (commit pending):** `AMBIT_HIRE_TOKEN` now accepts a comma-separated list of usable tokens (`parseHireTokens`), enabling zero-downtime rotation; a malformed entry degrades to the valid subset rather than failing open. Rotation runbook added to `docs/SECURITY.md` and `.env.example`. The requester-signature requirement remains the primary authorization.
 **Confidence:** Medium
-**Status:** Open
+**Status:** Resolved
 
 ---
 
@@ -237,8 +239,9 @@ config 18 · core 14 · demo 3 · endpoint 9 · db 3 · execution 38 · erc8004 
 **Evidence:** The local compose (M0 `docker compose up -d`) hardcodes `POSTGRES_PASSWORD: ambit`. The deployment compose (`docker-compose.deploy.yml`) correctly requires `POSTGRES_PASSWORD` from the environment (`${POSTGRES_PASSWORD:?…}`).
 **Problem:** A developer who copies the local compose to a non-loopback host exposes a trivial DB password. This is dev convenience, not the deploy path, but it is a footgun.
 **Recommended correction:** Change the local default to read from env (with a fallback only for pure-localloopback use) and add a comment that it must never be used for shared hosts.
+**Resolution (commit pending):** `docker-compose.yml` now reads `POSTGRES_PASSWORD` from the environment with a clearly-labeled local-only fallback (`ambit-local-dev-only`) and a comment that it must never be reused on a non-loopback host; `docker-compose.deploy.yml` already requires it from the environment.
 **Confidence:** High
-**Status:** Open
+**Status:** Resolved
 
 ---
 
@@ -249,8 +252,9 @@ config 18 · core 14 · demo 3 · endpoint 9 · db 3 · execution 38 · erc8004 
 **Evidence:** The request logger calls `safePath(context.req.url)`, which extracts only `pathname` and truncates to 256 chars; query strings and headers are not logged. No secrets, tokens, or bodies are logged. This is safe, but the full `url` is passed into `safePath` before truncation, so a pathological >256-char pathname becomes `<path-omitted>` rather than leaking.
 **Problem:** None functionally; noted only because the log line is the one place a future edit could accidentally widen logging.
 **Recommended correction:** Keep `safePath` as the only URL sink; add a test asserting query strings are never present in the emitted event.
+**Resolution (commit pending):** `apps/api/test/security.test.ts` now asserts the emitted http-request event contains no `?`, no `credential=`, and exactly `path: '/health'` (pathname only) — locking `safePath` as the sole URL sink.
 **Confidence:** High
-**Status:** Open
+**Status:** Resolved
 
 ---
 

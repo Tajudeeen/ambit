@@ -80,6 +80,22 @@ be pinned to the actual connection, with redirect targets and address families
 validated under the same policy. Until that transport boundary exists, endpoint
 verification must not be represented as connection-level SSRF protection.
 
+## Hire bearer token rotation (AMB-5)
+
+`AMBIT_HIRE_TOKEN` is the server-to-server credential for `POST /agents/:id/hire`.
+The API accepts a **comma-separated list** of tokens so rotation needs no downtime:
+
+1. Generate a new token (16–512 printable ASCII chars, cryptographically random).
+2. Append it to `AMBIT_HIRE_TOKEN` with a comma: `OLD,NEW`.
+3. Deploy/restart the API. Both tokens are now accepted (constant-time compare per token).
+4. After the old token is confirmed unused (no `unauthorized` spikes, no old deploys live),
+   remove it: `AMBIT_HIRE_TOKEN=NEW`.
+5. Never reuse a token across environments; scope per deployment.
+
+The requester wallet **signature** remains the primary authorization — the bearer
+token only proves "came from our frontend." A leaked token cannot authorize
+activations for wallets the attacker does not hold.
+
 ## Verification
 
 Adversarial tests cover request size, media type, security headers, and invalid

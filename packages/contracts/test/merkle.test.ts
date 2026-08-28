@@ -124,4 +124,41 @@ describe('M4b Merkle score tooling', () => {
       buildScoreSnapshot([claim(1n, 10), { ...claim(2n, 20), observedAtBlock: 41_000_101n }]),
     ).toThrow('observation block');
   });
+
+  // Mirrors the on-chain AmbitScoreAttestation.verifyClaim contract gate (AMB-4):
+  // consumers must reject a claim whose methodologyHash drifts from the attested
+  // root, and must reject wrong-leaf / wrong-root / out-of-range claims.
+  it('verifyClaim rejects methodology drift, wrong root, and out-of-range claims', () => {
+    const snapshot = buildScoreSnapshot([claim(1n, 72), claim(2n, 48)]);
+    const pinnedMethodology = snapshot.methodologyHash;
+
+    const honest = claim(1n, 72);
+    const honestProof = snapshot.getProof(honest);
+
+    // Happy path: matching methodology + valid root verifies.
+    expect(verifyScoreProof(honest, honestProof, snapshot.root)).toBe(true);
+    expect(honest.methodologyHash).toBe(pinnedMethodology);
+
+    // Wrong methodology hash (the contract's `claim.methodologyHash !=
+    // attestation.methodologyHash` gate) must be rejected by any consumer.
+    const driftedMethodology = hashMethodologyVersion('v9.9.9-tampered');
+    expect(driftedMethodology).not.toBe(pinnedMethodology);
+    const driftedClaim = { ...honest, methodologyHash: driftedMethodology };
+    // The Merkle proof is bound to the original leaf (which hashes the methodology),
+    // so a drifted claim cannot produce a valid proof against the original root.
+    expect(verifyScoreProof(driftedClaim, honestProof, snapshot.root)).toBe(false);
+    // And a consumer that pins the methodology rejects the drifted claim outright.
+    expect(driftedClaim.methodologyHash === pinnedMethodology).toBe(false);
+
+    // Wrong root: a valid proof against the wrong published root is rejected.
+    const wrongRoot = hashScoreLeaf(claim(99n, 0)); // arbitrary 32-byte value, not the root
+    expect(wrongRoot).not.toBe(snapshot.root);
+    expect(verifyScoreProof(honest, honestProof, wrongRoot)).toBe(false);
+
+    // Out-of-range claim fields are rejected by the contract's _validateClaim.
+    expect(() => hashScoreLeaf({ ...honest, score: 101 })).toThrow('0 to 100');
+    expect(() => hashScoreLeaf({ ...honest, confidence: 4 as ScoreClaim['confidence'] })).toThrow('0 to 3');
+    expect(() => hashScoreLeaf({ ...honest, verificationTier: 3 as ScoreClaim['verificationTier'] })).toThrow('0 to 2');
+    expect(() => hashScoreLeaf({ ...honest, chainId: 0n })).toThrow('chainId');
+  });
 });
