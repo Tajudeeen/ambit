@@ -108,3 +108,62 @@ docker compose up -d        # Postgres for M1+
 - [x] M15 Deployment (Node 24 container targets, committed Prisma migration, fail-closed Compose topology, Linux CI image verification)
 - [x] M16 Demo rehearsal (read-only live preflight, real discovery/profile/history evidence, deterministic failure on empty or inconsistent deployments)
 - [x] M17 Production readiness (connection-pinned endpoint verification, authenticated write boundary, operational telemetry, read-only production evidence verifier, external deployment evidence contract)
+
+## Why Ambit (for judges)
+
+Ambit is not a dashboard that *displays* agent reputation — it is infrastructure
+that **verifies** it and turns that verification into **bounded execution**.
+
+- **Evidence, not trust.** Every score is a deterministic function of independently
+  observed BSC evidence (identity, activity, endpoint liveness, payment proof). We
+  do not blindly trust ERC-8004 reputation — the methodology is versioned and
+  transparent, and consumers pin the methodology hash they accept.
+- **On-chain proof.** Trust scores are published as append-only Merkle roots to a
+  deployed BSC-testnet contract (`AmbitScoreAttestation`). A score is not a claim;
+  it is a verifiable inclusion proof against an on-chain root. The web UI reads that
+  root and *rejects* it if its methodology hash drifts from what this build trusts.
+- **Bounded execution, fail-closed.** Hiring an agent proxies through a deterministic
+  policy + risk + simulation engine. The model may *explain*, never *decide*. When
+  policy, simulation, authorization, or evidence cannot be established, the action is
+  rejected — there is no "just send it" path.
+- **Security is built in, not bolted on.** A full audit (`AUDIT.md`, AMB-1..AMB-7)
+  closed every finding: dependency remediation with a CI audit gate, a rotatable
+  contract publisher, a hire-token rotation runbook, no hardcoded secrets, a logger
+  that can never leak query strings, and a Slither + in-repo static gate in CI.
+
+## Live demo
+
+```bash
+pnpm install
+cp .env.example .env          # supply DATABASE_URL + a BSC testnet RPC
+docker compose up -d          # Postgres
+pnpm --filter @ambit/db db:generate
+pnpm --filter @ambit/indexer start   # (or use the committed indexer state)
+pnpm --filter @ambit/web dev         # open http://localhost:3000
+pnpm --filter @ambit/api dev         # marketplace API on :8787
+```
+
+What to show a judge:
+
+1. **Discover** a BSC agent at `/agents/<erc8004-registry>` — evidence profile,
+   trust score + confidence, category, freshness.
+2. **On-chain attestation panel** on that page — reads the deployed
+   `AmbitScoreAttestation` root, shows the pinned methodology as *verified* (or
+   *methodology-mismatch* if drifted), and links to BSC testnet explorer.
+3. **Hire flow** — a pending hire is gated by the deterministic policy/risk/sim
+   engine and signed via an Altana session; the LLM output is logged but cannot
+   approve the action.
+4. **Trust is transparent** — open `docs/ARCHITECTURE.md` / `trust-engine` to see
+   the exact scoring methodology and per-signal breakdown.
+
+## Key references
+
+- `AUDIT.md` — full security audit (AMB-1..AMB-7), all resolved.
+- `docs/ARCHITECTURE.md` — system map, trust boundaries, data flow.
+- `docs/SECURITY.md` — threat model and off-limits rules.
+- `docs/ADRs.md` — architectural decision records.
+- `TASKS.md` / `CHANGELOG.md` — milestone state and change history.
+
+> Built for the BNB Chain _Build the Era_ hackathon. Real BSC data only — no
+> fabricated agents, addresses, or reputation.
+

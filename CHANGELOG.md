@@ -7,6 +7,7 @@ Meaningful changes only — not every commit. Newest first (deeen_plans/CHANGELO
 ### Added
 - `scripts/verify` (lint → typecheck → test → web build) and `scripts/{lint,typecheck,test}` shims so the deeen_plans AGENTS.md commands exist in-repo.
 - Repo-level `AGENTS.md` pointing to `../deeen_plans/` as the standing operating manual; `TASKS.md` and this `CHANGELOG.md` seeded from the plan templates with Ambit's real state.
+- README "Why Ambit (for judges)" + "Live demo" + "Key references" sections for submission readiness.
 
 ### Changed
 - Adopted deeen_plans process conventions: `type/...` branch discipline, `type:` commit prefixes, permission tiers, definition-of-done (verify gate before "done").

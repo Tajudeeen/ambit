@@ -52,7 +52,7 @@ Hackathon submission window — see README / partner track deadlines.
 ## M5 — Submission
 
 - [x] Demo rehearsal (`feat/m16-demo-rehearsal`)
-- [ ] README polished for judges
+- [x] README polished for judges (Why Ambit / Live demo / references sections)
 - [ ] Submitted
 
 ## Blocked
