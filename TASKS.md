@@ -47,7 +47,7 @@ Hackathon submission window — see README / partner track deadlines.
 - [x] Local compose hardcoded password removed (AMB-6)
 - [x] Logger query-leak test (AMB-7)
 - [x] Consumer-side on-chain score attestation pin wired into agent page (Bucket 2)
-- [ ] Slither deeper static gate (recommended follow-up; no EVM harness in repo)
+- [x] Slither deep static-analysis gate added to CI security job (ADR-0019)
 
 ## M5 — Submission
 

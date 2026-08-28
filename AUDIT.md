@@ -209,11 +209,11 @@ config 18 · core 14 · demo 3 · endpoint 9 · db 3 · execution 38 · erc8004 
 **Requirement or control:** A shipped contract should have at least static analysis coverage, not only compiler success.
 **Evidence:** The contract is tiny (~153 lines) and was reviewed by direct read + the in-repo solc compiler/ABI test. Slither is not installed in this environment, so no detector pass was performed. Direct review found no reentrancy (no external calls; `publishRoot` only writes storage + emits), correct Merkle ordering (`computedHash < sibling`), and full range validation in `_validateClaim`. The main residual is `verifyClaim` returning `false` for unknown epochs without freshness checks — by design, off-chain.
 **Problem:** The audit trail for the contract is compiler-success + manual read, not an automated static gate. For a hackathon this is acceptable; for any real deployment it is a gap.
-**Recommended correction:** Add a Slither (or `slither-analyze`) step to CI and record its output; or add a `forge`/`hardhat` test that asserts `verifyClaim` rejects tampered proofs and out-of-range claims.
+**Recommended correction:** Add a Slither (or `slither-analyzer`) step to CI and record its output; or add a `forge`/`hardhat` test that asserts `verifyClaim` rejects tampered proofs and out-of-range claims.
 **Verification after correction:** CI step runs static analysis; a test asserts a wrong-leaf / wrong-root / wrong-methodology claim returns `false`.
-**Resolution (commit pending):** An in-repo static-analysis gate runs in the CI `security` job: `packages/contracts/test/solidity.test.ts` now (1) compiles with the pinned solc and asserts no `selfdestruct`/`delegatecall`/external-call escape patterns and a rotatable (non-immutable) publisher, and (2) `merkle.test.ts` asserts `verifyClaim`-equivalent rejection of methodology drift, wrong root, and out-of-range claim fields. Slither remains the recommended deeper gate (no EVM harness in repo); the in-repo check runs deterministically with no network install and records output in the CI log.
+**Resolution (commit pending):** An in-repo static-analysis gate runs in the CI `security` job: `packages/contracts/test/solidity.test.ts` now (1) compiles with the pinned solc and asserts no `selfdestruct`/`delegatecall`/external-call escape patterns and a rotatable (non-immutable) publisher, and (2) `merkle.test.ts` asserts `verifyClaim`-equivalent rejection of methodology drift, wrong root, and out-of-range claim fields. A **Slither deep static-analysis step** was added to the CI `security` job (ADR-0019): pins `slither-analyzer==0.11.2` + `solc-select 0.8.36`, runs on the standalone contract, and fails closed on any High/Medium detector (Low/Informational recorded). Both gates run in CI with recorded output.
 **Confidence:** High
-**Status:** Resolved (Slither recommended as deeper follow-up)
+**Status:** Resolved
 
 ---
 

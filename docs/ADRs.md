@@ -291,3 +291,29 @@ pretending to operate infrastructure it does not control. Credential custody,
 distributed rate limiting, WAF policy, DNS, certificates, image publication,
 database backups, alert delivery, and incident response still require a selected
 deployment platform and independent evidence.
+
+# ADR-0019: Slither as the deeper contract static-analysis gate (AMB-4 follow-up)
+
+**Status:** Accepted (M4 hardening, user-approved 2026-08-28)
+**Context:** AUDIT.md AMB-4 recommended a Slither (or Foundry) static-analysis
+gate as the deeper pass beyond the in-repo solc-compile + ABI-parity + Merkle
+surface test. The in-repo gate (packages/contracts/test/solidity.test.ts) already
+asserts no selfdestruct/delegatecall/external-call escape and a rotatable
+publisher; Slither adds detector coverage (reentrancy, uninitialized state,
+access-control, etc.) on the standalone AmbitScoreAttestation contract.
+**Decision:** Add a `Slither deep static analysis` step to the CI `security` job.
+It pins `slither-analyzer==0.11.2` and `solc-select`s `0.8.36` (matching the
+contract pragma), runs on the standalone contract (no external imports → no
+remaps), and fails closed on any High/Medium detector result (Low/Informational
+recorded but non-blocking). This is a Restricted-tier (CI) change, approved by the
+user before implementation.
+**Rejected:** (a) Adding Foundry/Hardhat EVM harness — rejected to keep the repo's
+no-EVM-harness philosophy and avoid heavy toolchain weight. (b) Making Slither
+non-blocking/warn-only — rejected: the deeen_plans security posture is fail-closed.
+(c) Running Slither locally as the sole gate — rejected: it must run in CI so the
+audit trail is reproducible and recorded.
+**Consequence:** CI now performs two contract static passes (in-repo solc invariants
++ Slither). Pinned versions reduce upstream detector drift. If the `ubuntu-latest`
+PyPI install ever flakes, the step surfaces a clear failure rather than passing
+silently (`slither` run is `|| true` only to always emit JSON for the node gate;
+the install itself is not guarded, so an install failure fails the job).

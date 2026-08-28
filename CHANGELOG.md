@@ -12,7 +12,7 @@ Meaningful changes only — not every commit. Newest first (deeen_plans/CHANGELO
 - Adopted deeen_plans process conventions: `type/...` branch discipline, `type:` commit prefixes, permission tiers, definition-of-done (verify gate before "done").
 
 ### Security
-- See `AUDIT.md` (AMB-1..AMB-7). Most recent closed items (2026-08-28): AMB-4 contract static-gate + tampered-proof test, AMB-5 hire-token rotation, AMB-6 local-compose password, AMB-7 logger query-leak test, Bucket-2 consumer-side on-chain score-attestation pin.
+- See `AUDIT.md` (AMB-1..AMB-7). Most recent closed items (2026-08-28): AMB-4..AMB-7 + Bucket 2 on-chain attestation; Slither deep static-analysis gate added to CI (ADR-0019).
 
 ## 2026-08-27
 

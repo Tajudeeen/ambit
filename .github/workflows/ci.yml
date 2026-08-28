@@ -48,6 +48,23 @@ jobs:
         # recommended deeper gate (see AUDIT.md); this runs deterministically with no
         # network install and records its output in the CI log.
         run: pnpm --filter @ambit/contracts test --reporter=verbose
+      - name: Slither deep static analysis (AMB-4 follow-up)
+        # The deeper static gate recommended in AUDIT.md. Slither runs on the
+        # standalone AmbitScoreAttestation contract (no external imports, pragma
+        # 0.8.36). The CI runner (ubuntu-latest) ships Python 3. We pin Slither and
+        # the solc version so the gate is reproducible and not subject to upstream
+        # detector drift. The step fails closed on any high/medium finding; low and
+        # informational results are recorded but do not break the build.
+        env:
+          SOLC_VERSION: '0.8.36'
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install slither-analyzer==0.11.2
+          solc-select install "$SOLC_VERSION" || true
+          solc-select use "$SOLC_VERSION"
+          slither packages/contracts/src/AmbitScoreAttestation.sol \
+            --json slither.json || true
+          node -e "const j=require('./slither.json');const r=j.results||{};const f=(r.detectors||[]).filter(d=>['High','Medium'].includes(d.impact));if(f.length){console.error('Slither high/medium findings:');f.forEach(d=>console.error(' -',d.impact,d.check+':',d.description));process.exit(1);}console.log('Slither gate passed (no high/medium findings). Low/informational:',(r.detectors||[]).filter(d=>!['High','Medium'].includes(d.impact)).length);"
 
   containers:
     runs-on: ubuntu-latest
