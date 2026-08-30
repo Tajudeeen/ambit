@@ -53,7 +53,8 @@ Hackathon submission window — see README / partner track deadlines.
 
 - [x] Demo rehearsal (`feat/m16-demo-rehearsal`)
 - [x] README polished for judges (Why Ambit / Live demo / references sections)
-- [ ] Submitted
+- [x] Verify gate green (lint → typecheck → test → web build) on `docs/adopt-deeen-plans`
+- [ ] Submitted (push branch + open PR / upload to hackathon portal)
 
 ## Blocked
 

@@ -9,6 +9,9 @@ Meaningful changes only — not every commit. Newest first (deeen_plans/CHANGELO
 - Repo-level `AGENTS.md` pointing to `../deeen_plans/` as the standing operating manual; `TASKS.md` and this `CHANGELOG.md` seeded from the plan templates with Ambit's real state.
 - README "Why Ambit (for judges)" + "Live demo" + "Key references" sections for submission readiness.
 
+### Fixed
+- `fix(docker)`: generate the Prisma client in the `build-indexer` Docker stage so the indexer image builds (it previously omitted the `db:generate` step that `build-api` had). Verified with `bash scripts/verify` (all green).
+
 ### Changed
 - Adopted deeen_plans process conventions: `type/...` branch discipline, `type:` commit prefixes, permission tiers, definition-of-done (verify gate before "done").
 
