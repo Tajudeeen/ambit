@@ -5,7 +5,10 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ambit
-      POSTGRES_PASSWORD: ambit
+      # Local dev only. Read from the environment; never commit or reuse this value
+      # on any non-loopback host. For shared/staging/prod use docker-compose.deploy.yml,
+      # which requires POSTGRES_PASSWORD from the environment (${POSTGRES_PASSWORD:?...}).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ambit-local-dev-only}
       POSTGRES_DB: ambit
     ports:
       - '5432:5432'

@@ -24,7 +24,9 @@ contract AmbitScoreAttestation {
     }
 
     error ZeroPublisher();
+    error ZeroOwner();
     error Unauthorized();
+    error NotOwner();
     error EmptyRoot();
     error EmptyMethodology();
     error EmptyManifest();
@@ -35,8 +37,12 @@ contract AmbitScoreAttestation {
     error InvalidScore();
     error InvalidConfidence();
     error InvalidVerificationTier();
+    error PendingPublisherExists();
 
-    address public immutable publisher;
+    address public publisher;
+    address public owner;
+    address public pendingPublisher;
+
     uint256 public latestEpoch;
     mapping(uint256 epoch => RootAttestation attestation) public attestations;
 
@@ -48,10 +54,34 @@ contract AmbitScoreAttestation {
         uint64 sourceBlock,
         uint32 leafCount
     );
+    event PublisherRotated(address indexed previousPublisher, address indexed newPublisher);
 
     constructor(address publisher_) {
         if (publisher_ == address(0)) revert ZeroPublisher();
+        // The deploying publisher is the initial owner, so a leaked publisher key
+        // can be rotated and the owner is the recovery path. A future deployment
+        // may set `owner` to a multisig/timelock instead of the publisher.
         publisher = publisher_;
+        owner = publisher_;
+    }
+
+    /// @notice Propose a new publisher. Two-step: the candidate must call
+    /// `acceptPublisher` before the rotation takes effect. Only the owner may propose.
+    function transferPublisher(address newPublisher) external {
+        if (msg.sender != owner) revert NotOwner();
+        if (newPublisher == address(0)) revert ZeroPublisher();
+        if (pendingPublisher != address(0)) revert PendingPublisherExists();
+        pendingPublisher = newPublisher;
+    }
+
+    /// @notice Accept a pending publisher rotation proposed by the owner.
+    function acceptPublisher() external {
+        address candidate = pendingPublisher;
+        if (msg.sender != candidate) revert Unauthorized();
+        address previous = publisher;
+        publisher = candidate;
+        pendingPublisher = address(0);
+        emit PublisherRotated(previous, candidate);
     }
 
     function publishRoot(

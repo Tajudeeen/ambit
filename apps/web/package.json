@@ -14,7 +14,8 @@
     "@ambit/core": "workspace:*",
     "next": "^15.1.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "viem": "^2.55.16"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
