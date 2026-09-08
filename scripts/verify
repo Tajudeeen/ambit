@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Gate from deeen_plans/TESTING.md (definition of done, items 2-6):
+#   lint -> typecheck -> test -> build
+# Run from repo root:  bash scripts/verify
+set -euo pipefail
+echo "==> lint"
+pnpm run lint
+echo "==> typecheck"
+pnpm run typecheck
+echo "==> test"
+pnpm run test
+echo "==> build (web app)"
+pnpm --filter @ambit/web build
+echo "==> verify: OK"

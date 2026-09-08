@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Thin wrapper so deeen_plans AGENTS.md commands exist in-repo.
+# Equivalent: pnpm run test
+set -euo pipefail
+pnpm run test

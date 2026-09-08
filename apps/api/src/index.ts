@@ -23,6 +23,11 @@ export const health = (context: Context) => context.json({ status: 'ok', service
 export const HIRE_REQUEST_BODY_LIMIT_BYTES = 16 * 1024;
 export const HIRE_AUTH_ENV = 'AMBIT_HIRE_TOKEN';
 export const RELEASE_ID_ENV = 'AMBIT_RELEASE_ID';
+// Accept a comma-separated list of usable hire tokens (primary, rotated, or
+// per-environment). AMB-5: enables zero-downtime rotation — issue a new token,
+// add it to the list, deploy, then remove the old one. All tokens must still
+// meet the same length/character constraints in isUsableHireToken.
+export const HIRE_TOKEN_SEPARATOR = ',';
 
 export interface HttpRequestEvent {
   event: 'http-request';
@@ -227,7 +232,8 @@ async function requireHireAuthorization(
   configuredToken: string | null,
   next: () => Promise<void>,
 ): Promise<Response | void> {
-  if (!isUsableHireToken(configuredToken)) {
+  const usableTokens = parseHireTokens(configuredToken);
+  if (usableTokens.length === 0) {
     return context.json(
       {
         error: {
@@ -244,7 +250,7 @@ async function requireHireAuthorization(
   const presentedToken = authorization?.startsWith(prefix)
     ? authorization.slice(prefix.length)
     : null;
-  if (!presentedToken || !matchesToken(presentedToken, configuredToken)) {
+  if (!presentedToken || !usableTokens.some((token) => matchesToken(presentedToken, token))) {
     return context.json(
       { error: { code: 'unauthorized', message: 'hire authorization required' } },
       401,
@@ -253,6 +259,18 @@ async function requireHireAuthorization(
   }
 
   await next();
+}
+
+// AMB-5: split a configured token string into the set of individually usable
+// tokens. Supports a comma-separated list for zero-downtime rotation; silently
+// drops any entry that does not satisfy isUsableHireToken so a malformed list
+// degrades to the valid subset rather than failing open.
+function parseHireTokens(configuredToken: string | null): string[] {
+  if (configuredToken === null) return [];
+  return configuredToken
+    .split(HIRE_TOKEN_SEPARATOR)
+    .map((token) => token.trim())
+    .filter((token) => isUsableHireToken(token));
 }
 
 function isUsableHireToken(token: string | null): token is string {

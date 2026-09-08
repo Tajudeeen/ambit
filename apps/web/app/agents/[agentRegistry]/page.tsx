@@ -5,6 +5,7 @@ import { HirePanel } from '@/components/hire-panel';
 import { StatusPill, endpointTone, verificationTone } from '@/components/status-pill';
 import { TrustScore } from '@/components/trust-score';
 import { agentInitials, formatAddress, formatDate, formatLabel } from '@/lib/format';
+import { getAttestationStatus, type AttestationStatus } from '@/lib/onchain-reputation';
 import {
   MarketplaceApiError,
   getAgent,
@@ -37,6 +38,13 @@ export default async function AgentProfilePage({ params }: { params: PageParams 
     executions = await getExecutions(agentRegistry);
   } catch {
     executions = null;
+  }
+
+  let attestation: AttestationStatus | null = null;
+  try {
+    attestation = await getAttestationStatus();
+  } catch {
+    attestation = null;
   }
 
   return (
@@ -128,6 +136,7 @@ export default async function AgentProfilePage({ params }: { params: PageParams 
             defaultDestination={agent.policy?.allowedTargets[0] ?? null}
           />
           <RegistryPanel agent={agent} />
+          <OnchainAttestationPanel status={attestation} />
         </div>
       </div>
     </div>
@@ -259,6 +268,96 @@ function EvidenceOverview({ agent }: { agent: MarketplaceAgentProfile }) {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function OnchainAttestationPanel({ status }: { status: AttestationStatus | null }) {
+  if (!status) {
+    return (
+      <aside className="registry-panel">
+        <p className="eyebrow">On-chain score attestation</p>
+        <p className="registry-note">
+          Ambit could not reach the score-attestation contract. Scores shown above are
+          computed off-chain evidence, not on-chain proof.
+        </p>
+      </aside>
+    );
+  }
+
+  if (status.kind === 'unavailable') {
+    return (
+      <aside className="registry-panel">
+        <p className="eyebrow">On-chain score attestation</p>
+        <p className="registry-note">{status.reason}</p>
+      </aside>
+    );
+  }
+
+  if (status.kind === 'methodology-mismatch') {
+    return (
+      <aside className="registry-panel">
+        <p className="eyebrow">On-chain score attestation</p>
+        <StatusPill value="methodology mismatch" tone="warning" />
+        <dl className="compact-list">
+          <div>
+            <dt>Pinned methodology</dt>
+            <dd title={status.pinned}>{status.pinned.slice(0, 10)}…</dd>
+          </div>
+          <div>
+            <dt>Contract methodology</dt>
+            <dd title={status.onchain}>{status.onchain.slice(0, 10)}…</dd>
+          </div>
+        </dl>
+        <p className="registry-note">
+          The deployed attestation root uses a methodology this build does not trust. Scores
+          shown are off-chain evidence only.
+        </p>
+      </aside>
+    );
+  }
+
+  const { attestation } = status;
+  return (
+    <aside className="registry-panel">
+      <p className="eyebrow">On-chain score attestation</p>
+      <StatusPill value="methodology verified" tone="positive" />
+      <dl className="compact-list">
+        <div>
+          <dt>Contract</dt>
+          <dd title={attestation.contractAddress}>
+            {formatAddress(attestation.contractAddress)}
+          </dd>
+        </div>
+        <div>
+          <dt>Latest epoch</dt>
+          <dd>{attestation.latestEpoch.toString()}</dd>
+        </div>
+        <div>
+          <dt>Root</dt>
+          <dd title={attestation.root}>{attestation.root.slice(0, 10)}…</dd>
+        </div>
+        <div>
+          <dt>Source block</dt>
+          <dd>{attestation.sourceBlock.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt>Published block</dt>
+          <dd>{attestation.publishedAtBlock.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt>Explorer</dt>
+          <dd>
+            <a href={attestation.explorerUrl} target="_blank" rel="noreferrer noopener">
+              BSC testnet
+            </a>
+          </dd>
+        </div>
+      </dl>
+      <p className="registry-note">
+        The latest score root is anchored on-chain with a methodology this build trusts. A
+        per-agent inclusion proof is verified by consumers when the indexer publishes it.
+      </p>
+    </aside>
   );
 }
 

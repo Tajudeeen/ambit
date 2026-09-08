@@ -1,3 +1,4 @@
+import './env.js';
 import { serve } from '@hono/node-server';
 import { getConfig } from '@ambit/config';
 import { createApp, logOperationalEvent } from './index.js';

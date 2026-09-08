@@ -12,3 +12,15 @@ onlyBuiltDependencies:
 # without interactive approval. CI uses the same config. Do NOT use in production
 # package publishing contexts.
 dangerouslyAllowAllBuilds: true
+
+# Dependency remediation overrides (AMB-1): clear critical/high advisories reachable
+# from the runtime/dev toolchain without forcing incompatible major bumps of consumers.
+# See AUDIT.md. Exceptions kept intentionally: tmp (solc-pinned, dev-only compile util)
+# and bigint-buffer (PancakeSwap Solana SDK, unused on BSC; no patched release).
+overrides:
+  vitest: ^3.2.6 # critical Vitest UI RCE — single override hoists all 14 workspace pins
+  vite: ^6.4.3 # Windows server.fs.deny bypass (high) — vitest 3 supports vite 6
+  postcss: ^8.5.26 # arbitrary file read via sourceMappingURL (high) — pulled by next + vite
+  sharp: ^0.35.4 # libvips CVEs (high) — pulled by next
+  ws@>=8.0.0 <8.21.0: 8.21.0 # ws memory-exhaustion DoS (high)
+  deepmerge-ts: ^8.0.0 # stack exhaustion (high) — pulled by prisma config

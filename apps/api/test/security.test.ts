@@ -63,6 +63,12 @@ describe('API security boundaries', () => {
     const serialized = JSON.stringify(events);
     expect(serialized).not.toContain('must-not-log');
     expect(serialized).not.toContain('caller-controlled-id');
+    // AMB-7: the logger only ever emits the pathname (via safePath), never the raw
+    // URL or its query string. Assert the emitted path has no '?' and the query
+    // value did not leak into the event.
+    expect(serialized).not.toContain('credential=');
+    expect(serialized).not.toContain('?');
+    expect(events[0]).toMatchObject({ path: '/health' });
   });
 
   it('fails closed when hire authorization is not configured', async () => {
@@ -127,6 +133,48 @@ describe('API security boundaries', () => {
         issues: ['content-type must be application/json'],
       },
     });
+  });
+
+  it('accepts a listed (rotated) hire token and rejects unknown tokens (AMB-5)', async () => {
+    const primary = 'primary-token-abcdef';
+    const rotated = 'rotated-token-ghijkl';
+    const app = createApp({ hireToken: `${primary},${rotated}` });
+
+    const withPrimary = await app.request(`/agents/${AGENT_REGISTRY}/hire`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${primary}` },
+    });
+    expect(withPrimary.status).not.toBe(401);
+
+    const withRotated = await app.request(`/agents/${AGENT_REGISTRY}/hire`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${rotated}` },
+    });
+    expect(withRotated.status).not.toBe(401);
+
+    const unknown = await app.request(`/agents/${AGENT_REGISTRY}/hire`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer unknown-token-mnopqr' },
+    });
+    expect(unknown.status).toBe(401);
+  });
+
+  it('degrades to the valid subset when a token list contains a malformed entry', async () => {
+    const good = 'good-token-abcdef';
+    // 'short' fails isUsableHireToken (too short) and must be ignored, not fail open.
+    const app = createApp({ hireToken: `short,${good}` });
+
+    const withGood = await app.request(`/agents/${AGENT_REGISTRY}/hire`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${good}` },
+    });
+    expect(withGood.status).not.toBe(401);
+
+    const withBad = await app.request(`/agents/${AGENT_REGISTRY}/hire`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer short' },
+    });
+    expect(withBad.status).toBe(401);
   });
 
   it('accepts JSON parameters without treating them as a different media type', async () => {

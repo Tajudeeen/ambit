@@ -20,6 +20,7 @@ RUN pnpm --filter @ambit/db db:generate
 RUN pnpm --filter @ambit/api typecheck
 
 FROM dependencies AS build-indexer
+RUN pnpm --filter @ambit/db db:generate
 RUN pnpm --filter @ambit/indexer typecheck
 
 FROM build-api AS api
